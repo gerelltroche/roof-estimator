@@ -12,7 +12,7 @@ import {
   type RoofStyle,
 } from "@roof-estimator/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchFootprints, prefetchFootprints } from "./footprint";
+import { fetchFootprints, FOOTPRINTS_AVAILABLE, prefetchFootprints } from "./footprint";
 import { geocode, type GeocodeResult } from "./geocode";
 import { WidgetPanel } from "./panels/WidgetPanel";
 import { MapView, type MapHandle } from "./MapView";
@@ -145,10 +145,9 @@ export function App() {
     try {
       const result = await fetchFootprints(point);
       const fp = result.footprints[0];
-      const label = { mapbox: "Mapbox", overpass: "OpenStreetMap", cache: "cache" }[result.provider];
-      setDetectStatus(`${label} · ${(result.ms / 1000).toFixed(1)} s${result.skipped.length ? ` (after ${result.skipped.join("; ")})` : ""}`);
+      setDetectStatus(result.provider === "cache" ? "cached" : `Mapbox · ${(result.ms / 1000).toFixed(2)} s`);
       if (!fp) {
-        alert("No building found here in OpenStreetMap. Zoom to the roof and try again, or draw it manually.");
+        alert("No building found at this spot. Search the address first, or draw the roof manually.");
         return;
       }
       const { model, autoSplit } = footprintToRoof(fp.polygon, {
@@ -212,7 +211,16 @@ export function App() {
           </button>
           <span className="sep" />
           <span className="detect">
-            <button className="primary" onClick={() => void detectRoof()} disabled={detecting} title="Find the building at the searched address (or map center) in OpenStreetMap and build a roof from it">
+            <button
+              className="primary"
+              onClick={() => void detectRoof()}
+              disabled={detecting || !FOOTPRINTS_AVAILABLE}
+              title={
+                FOOTPRINTS_AVAILABLE
+                  ? "Find the building at the searched address (or map center) and build a roof from it"
+                  : "Needs a Mapbox token (VITE_MAPBOX_TOKEN) — see README"
+              }
+            >
               {detecting ? "Detecting…" : "Detect roof"}
             </button>
             <select value={detectStyle} onChange={(e) => setDetectStyle(e.target.value as RoofStyle)} title="Roof style to generate">

@@ -1,43 +1,24 @@
 import { centroidLngLat, geoDistanceFeet, pointInPolygon, type LngLat } from "@roof-estimator/core";
+import { VectorTile } from "@mapbox/vector-tile";
+import { PbfReader } from "pbf";
 import { MAPBOX_TOKEN } from "./providers";
 
 export interface Footprint {
   id: string;
   polygon: LngLat[];
   tags: Record<string, string>;
-  source: "osm" | "mapbox";
+  source: "mapbox";
 }
 
 export interface FootprintLookup {
   footprints: Footprint[];
   /** Which provider answered. */
-  provider: "mapbox" | "overpass" | "cache";
+  provider: "mapbox" | "cache";
   /** Wall-clock time for the lookup, ms. */
   ms: number;
-  /** Providers that were tried and failed before the answer, if any. */
-  skipped: string[];
 }
 
-/**
- * Overpass endpoints that send CORS headers. overpass-api.de, lz4 and z are
- * the official cluster (round-robin DNS resolves to the same pool; naming
- * them explicitly spreads the race). maps.mail.ru runs an independent
- * instance. kumi.systems and private.coffee were dropped: both returned
- * 500s without CORS headers in Oct 2026.
- */
-const OVERPASS_ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://lz4.overpass-api.de/api/interpreter",
-  "https://z.overpass-api.de/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-];
-
-interface OverpassWay {
-  type: "way";
-  id: number;
-  tags?: Record<string, string>;
-  geometry: { lat: number; lon: number }[];
-}
+export const FOOTPRINTS_AVAILABLE = Boolean(MAPBOX_TOKEN);
 
 /** In-memory cache so re-detecting at the same spot is instant. */
 const cache = new Map<string, Footprint[]>();
@@ -63,61 +44,72 @@ function sortByHit(at: LngLat, fps: Footprint[]): Footprint[] {
 }
 
 /**
- * Mapbox Tilequery against the Streets v8 tileset, whose `building` layer is
- * OSM buildings. One ~200 ms HTTP call, no Overpass queue. Buildings that
- * straddle a tile edge come back clipped, so a polygon with vertices on the
- * z16 tile boundary is rejected and the caller falls back to Overpass.
+ * Mapbox Streets v8 vector tiles carry OSM building polygons in their
+ * `building` layer. We fetch the single tile covering the point and decode
+ * it client-side: one ~50 KB request.
+ *
+ * (Mapbox's Tilequery API cannot do this: its `geometry=polygon` parameter
+ * is a filter, and it always returns a point per feature.)
+ *
+ * Vector tiles clip geometry at the tile buffer, so a building straddling a
+ * tile edge comes back cut. If the chosen polygon reaches outside the tile
+ * we retry one zoom level out (whose edges are a subset of this zoom's), and
+ * if that still fails we give up and the user draws it.
  */
 async function mapboxFootprints(at: LngLat, radiusM: number, token: string, timeoutMs: number): Promise<Footprint[]> {
-  const url = new URL(`https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${at.lng},${at.lat}.json`);
-  url.searchParams.set("layers", "building");
-  url.searchParams.set("radius", String(radiusM));
-  url.searchParams.set("geometry", "polygon");
-  url.searchParams.set("limit", "10");
-  url.searchParams.set("access_token", token);
+  let lastErr: Error | null = null;
+  for (const z of [16, 15, 14]) {
+    try {
+      const fps = await footprintsFromTile(at, radiusM, z, token, timeoutMs);
+      if (fps.length) return fps;
+      lastErr = new Error(`no building within ${radiusM} m at z${z}`);
+    } catch (err) {
+      lastErr = err as Error;
+      if (lastErr.name === "AbortError" || /HTTP/.test(lastErr.message)) throw lastErr;
+    }
+  }
+  throw lastErr ?? new Error("no building found");
+}
+
+async function footprintsFromTile(at: LngLat, radiusM: number, z: number, token: string, timeoutMs: number): Promise<Footprint[]> {
+  const { x, y, bounds } = tileFor(at, z);
+  const url = `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/${z}/${x}/${y}.vector.pbf?access_token=${token}`;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const res = await fetch(url.toString(), { signal: ctl.signal });
-    if (!res.ok) {
-      let detail = "";
-      try {
-        detail = ((await res.json()) as { message?: string }).message ?? "";
-      } catch {
-        /* no body */
-      }
-      throw new Error(`Mapbox tilequery HTTP ${res.status}${detail ? ` (${detail})` : ""}`);
-    }
-    const json = (await res.json()) as {
-      features: { id?: number; geometry: { type: string; coordinates: number[][][] }; properties: Record<string, string> }[];
-    };
-    if (!json.features?.length) throw new Error("Mapbox tilequery returned no buildings within " + radiusM + " m");
-    const bounds = tileBoundsZ16(at);
+    const res = await fetch(url, { signal: ctl.signal });
+    if (!res.ok) throw new Error(`Mapbox tile HTTP ${res.status}`);
+    const tile = new VectorTile(new PbfReader(await res.arrayBuffer()));
+    const layer = tile.layers.building;
+    if (!layer) return [];
+    const radiusFt = radiusM * 3.28084;
     const fps: Footprint[] = [];
-    for (const f of json.features) {
-      if (f.geometry.type !== "Polygon") continue;
-      const ring = f.geometry.coordinates[0] ?? [];
-      const polygon = ring.map(([lng, lat]) => ({ lng: lng!, lat: lat! }));
-      if (polygon.length > 1) {
-        const a = polygon[0]!;
-        const b = polygon[polygon.length - 1]!;
-        if (a.lng === b.lng && a.lat === b.lat) polygon.pop();
+    for (let i = 0; i < layer.length; i++) {
+      const f = layer.feature(i);
+      const g = f.toGeoJSON(x, y, z).geometry;
+      const rings: number[][][] = g.type === "Polygon" ? [g.coordinates[0]!] : g.type === "MultiPolygon" ? g.coordinates.map((p) => p[0]!) : [];
+      for (const ring of rings) {
+        const polygon = ring.map(([lng, lat]) => ({ lng: lng!, lat: lat! }));
+        if (polygon.length > 1) {
+          const a = polygon[0]!;
+          const b = polygon[polygon.length - 1]!;
+          if (a.lng === b.lng && a.lat === b.lat) polygon.pop();
+        }
+        if (polygon.length < 3) continue;
+        if (!pointInPolygon(at, polygon) && geoDistanceFeet(at, centroidLngLat(polygon)) > radiusFt) continue;
+        fps.push({ id: `mapbox-${z}-${f.id ?? i}`, polygon, tags: f.properties as Record<string, string>, source: "mapbox" });
       }
-      if (polygon.length < 3) continue;
-      fps.push({ id: `mapbox-${f.id ?? fps.length}`, polygon, tags: f.properties, source: "mapbox" });
     }
     sortByHit(at, fps);
-    // Only the polygon we'd actually use matters; a clipped neighbor is irrelevant.
     const best = fps[0];
-    if (best && touchesTileEdge(best.polygon, bounds)) throw new Error("building straddles a tile edge (clipped)");
+    if (best && extendsOutsideTile(best.polygon, bounds)) throw new Error(`building clipped at z${z} tile edge`);
     return fps;
   } finally {
     clearTimeout(timer);
   }
 }
 
-function tileBoundsZ16(p: LngLat) {
-  const z = 16;
+function tileFor(p: LngLat, z: number) {
   const n = 2 ** z;
   const x = Math.floor(((p.lng + 180) / 360) * n);
   const latRad = (p.lat * Math.PI) / 180;
@@ -125,26 +117,24 @@ function tileBoundsZ16(p: LngLat) {
   const lng0 = (x / n) * 360 - 180;
   const lng1 = ((x + 1) / n) * 360 - 180;
   const latOf = (yy: number) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * yy) / n))) * 180) / Math.PI;
-  return { lng0, lng1, lat0: latOf(y + 1), lat1: latOf(y) };
+  return { x, y, bounds: { lng0, lng1, lat0: latOf(y + 1), lat1: latOf(y) } };
 }
 
-function touchesTileEdge(poly: LngLat[], b: ReturnType<typeof tileBoundsZ16>): boolean {
-  const eps = 1e-6; // ~0.1 m
-  return poly.some(
-    (p) => Math.abs(p.lng - b.lng0) < eps || Math.abs(p.lng - b.lng1) < eps || Math.abs(p.lat - b.lat0) < eps || Math.abs(p.lat - b.lat1) < eps,
-  );
+/** True if any vertex lies outside (or exactly on) the tile's own bounds, i.e. in the buffer where clipping happens. */
+function extendsOutsideTile(poly: LngLat[], b: { lng0: number; lng1: number; lat0: number; lat1: number }): boolean {
+  const eps = 1e-7;
+  return poly.some((p) => p.lng <= b.lng0 + eps || p.lng >= b.lng1 - eps || p.lat <= b.lat0 + eps || p.lat >= b.lat1 - eps);
 }
 
 /**
- * Fetch building footprints near a point from OpenStreetMap via Overpass.
- * All mirrors are queried in parallel and the first good answer wins, since
- * individual Overpass servers often queue requests for several seconds.
- * Returns the building containing the point first, then others by distance.
+ * Fetch OSM building footprints near a point (via Mapbox Streets vector
+ * tiles). Returns the building containing the point first, then others by
+ * distance. Results are cached and in-flight lookups deduplicated.
  */
-export function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 20000): Promise<FootprintLookup> {
+export function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 10000): Promise<FootprintLookup> {
   const key = `${at.lat.toFixed(5)},${at.lng.toFixed(5)},${radiusM}`;
   const hit = cache.get(key);
-  if (hit) return Promise.resolve({ footprints: hit, provider: "cache", ms: 0, skipped: [] });
+  if (hit) return Promise.resolve({ footprints: hit, provider: "cache", ms: 0 });
   const pending = inflight.get(key);
   if (pending) return pending;
   const p = lookup(at, radiusM, timeoutMs, key).finally(() => inflight.delete(key));
@@ -153,73 +143,20 @@ export function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 20000): Pr
 }
 
 async function lookup(at: LngLat, radiusM: number, timeoutMs: number, key: string): Promise<FootprintLookup> {
+  if (!MAPBOX_TOKEN) {
+    throw new Error("Automatic roof detection needs a Mapbox token (VITE_MAPBOX_TOKEN). Draw the roof manually instead.");
+  }
   const t0 = performance.now();
-  const reasons: string[] = [];
-  if (MAPBOX_TOKEN) {
-    try {
-      const fps = await mapboxFootprints(at, radiusM, MAPBOX_TOKEN, 10000);
-      if (fps.length) {
-        cache.set(key, fps);
-        const ms = performance.now() - t0;
-        console.info(`[footprint] Mapbox tilequery: ${fps.length} buildings in ${ms.toFixed(0)} ms`);
-        return { footprints: fps, provider: "mapbox", ms, skipped: [] };
-      }
-      reasons.push("Mapbox: no usable building polygon");
-    } catch (err) {
-      const e = err as Error;
-      reasons.push(`Mapbox: ${e.name === "AbortError" ? "timed out" : e.message}`);
-      console.warn(`[footprint] Mapbox tilequery failed after ${(performance.now() - t0).toFixed(0)} ms, falling back to Overpass:`, err);
-    }
-  }
-
-  const query = `[out:json][timeout:15];way["building"](around:${radiusM},${at.lat},${at.lng});out geom;`;
-  const controllers = OVERPASS_ENDPOINTS.map(() => new AbortController());
-  const attempts = OVERPASS_ENDPOINTS.map(async (endpoint, i) => {
-    const ctl = controllers[i]!;
-    const timer = setTimeout(() => ctl.abort(), timeoutMs);
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: ctl.signal,
-      });
-      if (!res.ok) throw new Error(`Overpass ${res.status} from ${new URL(endpoint).host}`);
-      const json = (await res.json()) as { elements: OverpassWay[] };
-      if (!Array.isArray(json.elements)) throw new Error("Bad Overpass response");
-      return json.elements;
-    } finally {
-      clearTimeout(timer);
-    }
-  });
-
-  let elements: OverpassWay[];
   try {
-    elements = await Promise.any(attempts);
+    const fps = await mapboxFootprints(at, radiusM, MAPBOX_TOKEN, timeoutMs);
+    cache.set(key, fps);
+    const ms = performance.now() - t0;
+    console.info(`[footprint] Mapbox vector tile: ${fps.length} buildings in ${ms.toFixed(0)} ms`);
+    return { footprints: fps, provider: "mapbox", ms };
   } catch (err) {
-    const first = (err as AggregateError).errors?.[0] as Error | undefined;
-    reasons.push(`OpenStreetMap: ${first?.name === "AbortError" ? "timed out" : first?.message ?? "unknown error"}`);
-    throw new Error(`Couldn't find the building footprint.\n\n${reasons.join("\n")}\n\nTry again, or draw the roof manually.`);
-  } finally {
-    // Whichever finished first wins; cancel the rest so they don't keep loading.
-    setTimeout(() => controllers.forEach((c) => c.abort()), 0);
+    const e = err as Error;
+    const why = e.name === "AbortError" ? "timed out" : e.message;
+    console.warn(`[footprint] Mapbox vector tile failed after ${(performance.now() - t0).toFixed(0)} ms:`, err);
+    throw new Error(`Couldn't find the building footprint (${why}). Try again, or draw the roof manually.`);
   }
-
-  const fps: Footprint[] = elements
-    .filter((e) => e.type === "way" && e.geometry?.length >= 4)
-    .map((w) => {
-      const polygon = w.geometry.map((g) => ({ lng: g.lon, lat: g.lat }));
-      if (polygon.length > 1) {
-        const a = polygon[0]!;
-        const b = polygon[polygon.length - 1]!;
-        if (a.lng === b.lng && a.lat === b.lat) polygon.pop();
-      }
-      return { id: `osm-${w.id}`, polygon, tags: w.tags ?? {}, source: "osm" as const };
-    })
-    .filter((f) => f.polygon.length >= 3);
-  sortByHit(at, fps);
-  cache.set(key, fps);
-  const ms = performance.now() - t0;
-  console.info(`[footprint] Overpass: ${fps.length} buildings in ${ms.toFixed(0)} ms`);
-  return { footprints: fps, provider: "overpass", ms, skipped: reasons };
 }

@@ -5,9 +5,11 @@ import type maplibregl from "maplibre-gl";
  * restricted to your domains in the Mapbox dashboard) to get:
  *   - Mapbox satellite imagery instead of Esri
  *   - Mapbox Geocoding v6 instead of Photon/Nominatim
- *   - Mapbox Tilequery (OSM buildings from the Streets tileset) instead of
- *     Overpass for footprint detection, with Overpass as a fallback
- * Without a token everything falls back to the free OSM-based providers.
+ *   - "Detect roof": OSM building polygons decoded from Mapbox Streets
+ *     vector tiles (the only footprint source; public Overpass was dropped
+ *     because it queues for 10-20 s)
+ * Without a token, imagery and geocoding fall back to free providers and
+ * roofs are drawn by hand.
  */
 export const MAPBOX_TOKEN: string | undefined = import.meta.env.VITE_MAPBOX_TOKEN || undefined;
 export const hasMapbox = Boolean(MAPBOX_TOKEN);

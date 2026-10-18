@@ -15,11 +15,11 @@
 - [ ] Gutter / downspout takeoff from eave lengths
 
 ## v0.3 — measurement helpers
-- [x] Auto-detect building footprint from OpenStreetMap (Overpass) as a starting polygon
+- [x] Auto-detect building footprint (OSM buildings via Mapbox Streets vector tiles)
 - [ ] Pitch estimation from shadow length / image heuristics, and from phone camera (PWA)
 - [x] Auto-split rectangular footprints into hip/gable facets
 - [ ] Auto-split L/T/U footprints via straight skeleton
-- [ ] Fall back to Microsoft / Overture building footprints where OSM has none
+- [ ] Microsoft / Overture building footprints where OSM has none, and a keyless fallback (self-hosted tile proxy)
 - [ ] Multiple structures on one property, each with its own summary
 - [ ] Imperial / metric toggle
 

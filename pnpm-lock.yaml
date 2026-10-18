@@ -14,12 +14,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@mapbox/vector-tile':
+        specifier: ^3.0.0
+        version: 3.0.0
       '@roof-estimator/core':
         specifier: workspace:*
         version: link:../../packages/core
       maplibre-gl:
         specifier: ^4.7.0
         version: 4.7.1
+      pbf:
+        specifier: ^5.1.2
+        version: 5.1.2
       react:
         specifier: ^18.3.0
         version: 18.3.1
@@ -27,9 +33,15 @@ importers:
         specifier: ^18.3.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
+      '@types/mapbox__vector-tile':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
+      '@types/pbf':
+        specifier: ^3.0.5
+        version: 3.0.5
       '@types/react':
         specifier: ^18.3.0
         version: 18.3.31
@@ -305,6 +317,9 @@ packages:
   '@mapbox/point-geometry@0.1.0':
     resolution: {integrity: sha512-6j56HdLTwWGO0fJPlrZtdU/B13q8Uwmo18Ck2GnGgN9PCFyKTZ3UbXeEdRFh18i9XQ92eH2VdtpJHpBD3aripQ==}
 
+  '@mapbox/point-geometry@1.1.0':
+    resolution: {integrity: sha512-YGcBz1cg4ATXDCM/71L9xveh4dynfGmcLDqufR+nQQy3fKwsAZsWd/x4621/6uJaeB9mwOHE6hPeDgXz9uViUQ==}
+
   '@mapbox/tiny-sdf@2.3.0':
     resolution: {integrity: sha512-gBvcNDBBB66bgQYvnaJ6Jk+VCaMmVq5+IZR2kWPisT88Z8s0kBQt6hfVi8QgRW8Vpg0UWZzBA4ZSyzHHC+VeRA==}
 
@@ -313,6 +328,9 @@ packages:
 
   '@mapbox/vector-tile@1.3.1':
     resolution: {integrity: sha512-MCEddb8u44/xfQ3oD+Srl/tNcQoqTw3goGk2oLsrFxOTc3dUp+kAnby3PvAeeBYSMSjSPD1nd1AJA6W49WnoUw==}
+
+  '@mapbox/vector-tile@3.0.0':
+    resolution: {integrity: sha512-Qf10S1uIHMk20ri/IVBnpS+esUEkVaR5Hftmz88jTInrpmWgPGJfPe3LVjjlE77trLx8tH6qjTG7uWH9hIq/0Q==}
 
   '@mapbox/whoots-js@3.1.0':
     resolution: {integrity: sha512-Es6WcD0nO5l+2BOQS4uLfNPYQaNDfbot3X1XUoloz+x0mPDS3eeORZJl06HXjwBG1fOGwCRnzK88LMdxKRrd6Q==}
@@ -482,6 +500,10 @@ packages:
 
   '@types/mapbox__vector-tile@1.3.4':
     resolution: {integrity: sha512-bpd8dRn9pr6xKvuEBQup8pwQfD4VUyqO/2deGjfpe6AwC8YRlyEipvefyRJUSiCJTZuCb8Pl1ciVV5ekqJ96Bg==}
+
+  '@types/mapbox__vector-tile@2.0.0':
+    resolution: {integrity: sha512-Cg8Ue+JIHTgi96eAjeOdT/Rj3ftU327v7bhi1buQ67xV5wdkaCOhzrLGq8E7vxZM/h2EqOKJTYETwwqm0lyvWw==}
+    deprecated: This is a stub types definition. @mapbox/vector-tile provides its own type definitions, so you do not need this installed.
 
   '@types/node@26.6.5':
     resolution: {integrity: sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==}
@@ -712,6 +734,10 @@ packages:
 
   pbf@3.3.0:
     resolution: {integrity: sha512-XDF38WCH3z5OV/OVa8GKUNtLAyneuzbCisx7QUCF8Q6Nutx0WnJrQe5O+kOtBlLfRNUws98Y58Lblp+NJG5T4Q==}
+    hasBin: true
+
+  pbf@5.1.2:
+    resolution: {integrity: sha512-mnvGdvOrIvJOBGUEdGkrVXjN8E/VkIJCkf2eS1DH2yv82ORUlLttmDt0rWY38yYZmVwciZwBUvHM20qxBZf40w==}
     hasBin: true
 
   picocolors@1.1.1:
@@ -1103,6 +1129,8 @@ snapshots:
 
   '@mapbox/point-geometry@0.1.0': {}
 
+  '@mapbox/point-geometry@1.1.0': {}
+
   '@mapbox/tiny-sdf@2.3.0': {}
 
   '@mapbox/unitbezier@0.0.1': {}
@@ -1110,6 +1138,12 @@ snapshots:
   '@mapbox/vector-tile@1.3.1':
     dependencies:
       '@mapbox/point-geometry': 0.1.0
+
+  '@mapbox/vector-tile@3.0.0':
+    dependencies:
+      '@mapbox/point-geometry': 1.1.0
+      '@types/geojson': 7946.0.16
+      pbf: 5.1.2
 
   '@mapbox/whoots-js@3.1.0': {}
 
@@ -1239,6 +1273,10 @@ snapshots:
       '@types/geojson': 7946.0.16
       '@types/mapbox__point-geometry': 0.1.4
       '@types/pbf': 3.0.5
+
+  '@types/mapbox__vector-tile@2.0.0':
+    dependencies:
+      '@mapbox/vector-tile': 3.0.0
 
   '@types/node@26.6.5':
     dependencies:
@@ -1484,6 +1522,10 @@ snapshots:
   pbf@3.3.0:
     dependencies:
       ieee754: 1.2.1
+      resolve-protobuf-schema: 2.1.0
+
+  pbf@5.1.2:
+    dependencies:
       resolve-protobuf-schema: 2.1.0
 
   picocolors@1.1.1: {}

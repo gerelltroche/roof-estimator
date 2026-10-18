@@ -10,7 +10,7 @@ Draw a roof over satellite imagery, label the edges, set the pitch, and get a me
 
 | Area | Features |
 | --- | --- |
-| **Auto-detect** | **Detect roof** finds the building at the address in OpenStreetMap and, for rectangle-like footprints, generates a fully labeled hip or gable roof with the ridge on the long axis. Other shapes come in as an outline to split. |
+| **Auto-detect** | **Detect roof** reads the OSM building polygon under the address from Mapbox Streets vector tiles (one ~50 KB request, decoded in the browser) and, for rectangle-like footprints, generates a fully labeled hip or gable roof with the ridge on the long axis. Other shapes come in as an outline to split. Needs a free Mapbox token. |
 | **Measure** | Address search, satellite imagery, draw facets by clicking corners, vertex snapping, drag to adjust, per-facet pitch (rise/12, degrees, or %), edge labels: eave, rake, ridge, hip, valley, transition, wall, parapet. Keyboard shortcuts for fast labeling. |
 | **Report** | Total area, squares, footprint area, areas-per-pitch table, predominant pitch, linear feet of every edge type (shared ridges/hips/valleys counted once), complexity rating, suggested waste, and a 0–30% waste table rounded to ⅓ square, matching the format of an EagleView Premium report. |
 | **Takeoff** | Shingle bundles, underlayment rolls, ice & water, starter, hip/ridge cap, drip edge, valley metal, step flashing, pipe boots and other penetrations, ridge vent, nails, cap nails, sealant. Every quantity shows the formula it came from. All coverage assumptions are editable. |
@@ -31,12 +31,12 @@ Requires Node 20+ and [pnpm](https://pnpm.io).
 
 ### Optional: Mapbox
 
-Copy `apps/web/.env.example` to `apps/web/.env` and set `VITE_MAPBOX_TOKEN` to a public token. That switches the app to Mapbox satellite imagery, Mapbox Geocoding v6, and Mapbox Tilequery for footprint detection (one fast HTTP call against the Streets tileset's OSM buildings, instead of the often-queued public Overpass servers). Everything still works without a token; the free providers are the fallback either way. The hosted demo passes the token in from a `MAPBOX_TOKEN` repository secret at build time.
+Copy `apps/web/.env.example` to `apps/web/.env` and set `VITE_MAPBOX_TOKEN` to a public token (free tier is plenty; restrict it to your domain). That switches on Mapbox satellite imagery, Mapbox Geocoding v6, and **Detect roof**, which decodes building polygons from Mapbox Streets vector tiles. Without a token you get Esri imagery and OSM geocoding and draw roofs by hand; the public Overpass API was dropped as a footprint source because it routinely queues for 10–20 s. The hosted demo passes the token in from a `MAPBOX_TOKEN` repository secret at build time.
 
 ### Workflow
 
 1. Search an address. The map flies to it at roof-level zoom.
-2. Click **Detect roof** to pull the building footprint from OpenStreetMap and auto-generate a hip or gable roof. If the house isn't a simple rectangle (or isn't in OSM yet), draw it: click **Draw facet** (or press <kbd>D</kbd>), click each corner of one roof plane, then click the first corner or press <kbd>Enter</kbd> to close it. Repeat per plane. Corners snap to existing points so shared edges line up.
+2. Click **Detect roof** to pull the building footprint and auto-generate a hip or gable roof. If the house isn't a simple rectangle (or isn't in OSM yet), draw it: click **Draw facet** (or press <kbd>D</kbd>), click each corner of one roof plane, then click the first corner or press <kbd>Enter</kbd> to close it. Repeat per plane. Corners snap to existing points so shared edges line up.
 3. Select a facet, set its pitch, then click each edge and label it (<kbd>E</kbd> eave, <kbd>K</kbd> rake, <kbd>R</kbd> ridge, <kbd>H</kbd> hip, <kbd>V</kbd> valley, <kbd>W</kbd> wall). The selection advances automatically so you can label a whole facet by typing, e.g. `E K R K`.
 4. Open **Report**, **Takeoff**, and **Estimate**. Adjust waste, coverage, and prices to match your supplier and crew.
 5. **Print / PDF** for a report, or **Export** for a `.roof.json` you can reopen later.
@@ -87,4 +87,4 @@ Measurement reports cost $13–50 each and estimating seats run $100–350/month
 
 ## License
 
-MIT. Imagery is Esri World Imagery or Mapbox Satellite, address search is Photon/Nominatim or Mapbox Geocoding, and building footprints are © OpenStreetMap contributors via Overpass or Mapbox Tilequery, each under their own terms.
+MIT. Imagery is Esri World Imagery or Mapbox Satellite, address search is Photon/Nominatim or Mapbox Geocoding, and building footprints are © OpenStreetMap contributors via Mapbox Streets, each under their own terms.

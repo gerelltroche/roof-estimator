@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "model": {
+    "id": "hip",
+    "name": "Sample hip roof",
+    "facets": [
+      {
+        "id": "hip-south",
+        "label": "South",
+        "pitch": 6,
+        "vertices": [
+          {
+            "lng": -81.1934935040528,
+            "lat": 28.53974523870028
+          },
+          {
+            "lng": -81.1933064959472,
+            "lat": 28.53974523870028
+          },
+          {
+            "lng": -81.1933688319824,
+            "lat": 28.5398
+          },
+          {
+            "lng": -81.1934311680176,
+            "lat": 28.5398
+          }
+        ],
+        "edges": [
+          {
+            "type": "eave"
+          },
+          {
+            "type": "hip"
+          },
+          {
+            "type": "ridge"
+          },
+          {
+            "type": "hip"
+          }
+        ]
+      },
+      {
+        "id": "hip-north",
+        "label": "North",
+        "pitch": 6,
+        "vertices": [
+          {
+            "lng": -81.1934311680176,
+            "lat": 28.5398
+          },
+          {
+            "lng": -81.1933688319824,
+            "lat": 28.5398
+          },
+          {
+            "lng": -81.1933064959472,
+            "lat": 28.53985476129972
+          },
+          {
+            "lng": -81.1934935040528,
+            "lat": 28.53985476129972
+          }
+        ],
+        "edges": [
+          {
+            "type": "ridge"
+          },
+          {
+            "type": "hip"
+          },
+          {
+            "type": "eave"
+          },
+          {
+            "type": "hip"
+          }
+        ]
+      },
+      {
+        "id": "hip-east",
+        "label": "East",
+        "pitch": 6,
+        "vertices": [
+          {
+            "lng": -81.1933064959472,
+            "lat": 28.53974523870028
+          },
+          {
+            "lng": -81.1933064959472,
+            "lat": 28.53985476129972
+          },
+          {
+            "lng": -81.1933688319824,
+            "lat": 28.5398
+          }
+        ],
+        "edges": [
+          {
+            "type": "eave"
+          },
+          {
+            "type": "hip"
+          },
+          {
+            "type": "hip"
+          }
+        ]
+      },
+      {
+        "id": "hip-west",
+        "label": "West",
+        "pitch": 6,
+        "vertices": [
+          {
+            "lng": -81.1934935040528,
+            "lat": 28.53985476129972
+          },
+          {
+            "lng": -81.1934935040528,
+            "lat": 28.53974523870028
+          },
+          {
+            "lng": -81.1934311680176,
+            "lat": 28.5398
+          }
+        ],
+        "edges": [
+          {
+            "type": "eave"
+          },
+          {
+            "type": "hip"
+          },
+          {
+            "type": "hip"
+          }
+        ]
+      }
+    ],
+    "address": "Waterford Lakes, Orlando, FL",
+    "existingLayers": 1,
+    "stories": 1,
+    "penetrations": [
+      {
+        "type": "pipe-boot",
+        "count": 3
+      },
+      {
+        "type": "vent",
+        "count": 2
+      }
+    ]
+  }
+}

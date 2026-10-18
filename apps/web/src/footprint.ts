@@ -58,10 +58,19 @@ async function mapboxFootprints(at: LngLat, radiusM: number, token: string, time
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(url.toString(), { signal: ctl.signal });
-    if (!res.ok) throw new Error(`Mapbox tilequery ${res.status}`);
+    if (!res.ok) {
+      let detail = "";
+      try {
+        detail = ((await res.json()) as { message?: string }).message ?? "";
+      } catch {
+        /* no body */
+      }
+      throw new Error(`Mapbox tilequery HTTP ${res.status}${detail ? ` (${detail})` : ""}`);
+    }
     const json = (await res.json()) as {
       features: { id?: number; geometry: { type: string; coordinates: number[][][] }; properties: Record<string, string> }[];
     };
+    if (!json.features?.length) throw new Error("Mapbox tilequery returned no buildings within " + radiusM + " m");
     const bounds = tileBoundsZ16(at);
     const fps: Footprint[] = [];
     for (const f of json.features) {
@@ -108,24 +117,28 @@ function touchesTileEdge(poly: LngLat[], b: ReturnType<typeof tileBoundsZ16>): b
  * individual Overpass servers often queue requests for several seconds.
  * Returns the building containing the point first, then others by distance.
  */
-export async function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 12000): Promise<Footprint[]> {
+export async function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 20000): Promise<Footprint[]> {
   const key = `${at.lat.toFixed(5)},${at.lng.toFixed(5)},${radiusM}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
+  const reasons: string[] = [];
   if (MAPBOX_TOKEN) {
     try {
-      const fps = await mapboxFootprints(at, radiusM, MAPBOX_TOKEN, timeoutMs);
+      const fps = await mapboxFootprints(at, radiusM, MAPBOX_TOKEN, 10000);
       if (fps.length) {
         cache.set(key, fps);
         return fps;
       }
+      reasons.push("Mapbox: no usable building polygon");
     } catch (err) {
+      const e = err as Error;
+      reasons.push(`Mapbox: ${e.name === "AbortError" ? "timed out" : e.message}`);
       console.warn("[footprint] Mapbox tilequery failed, falling back to Overpass:", err);
     }
   }
 
-  const query = `[out:json][timeout:10];way["building"](around:${radiusM},${at.lat},${at.lng});out geom;`;
+  const query = `[out:json][timeout:15];way["building"](around:${radiusM},${at.lat},${at.lng});out geom;`;
   const controllers = OVERPASS_ENDPOINTS.map(() => new AbortController());
   const attempts = OVERPASS_ENDPOINTS.map(async (endpoint, i) => {
     const ctl = controllers[i]!;
@@ -151,7 +164,8 @@ export async function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 1200
     elements = await Promise.any(attempts);
   } catch (err) {
     const first = (err as AggregateError).errors?.[0] as Error | undefined;
-    throw new Error(`Could not reach OpenStreetMap (${first?.name === "AbortError" ? "timed out" : first?.message ?? "unknown error"}). Try again or draw the roof manually.`);
+    reasons.push(`OpenStreetMap: ${first?.name === "AbortError" ? "timed out" : first?.message ?? "unknown error"}`);
+    throw new Error(`Couldn't find the building footprint.\n\n${reasons.join("\n")}\n\nTry again, or draw the roof manually.`);
   } finally {
     // Whichever finished first wins; cancel the rest so they don't keep loading.
     setTimeout(() => controllers.forEach((c) => c.abort()), 0);

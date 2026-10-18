@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Sunshine State Roofing — Instant Quote (demo)</title>
+    <meta name="robots" content="noindex" />
+    <style>
+      :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1f2937; }
+      body { margin: 0; background: #fff; }
+      .nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid #e5e7eb; }
+      .nav .logo { font-weight: 800; font-size: 20px; color: #0f766e; }
+      .nav a { color: #374151; text-decoration: none; margin-left: 20px; font-size: 14px; }
+      .hero { background: linear-gradient(135deg, #0f766e, #14b8a6); color: #fff; padding: 56px 32px; text-align: center; }
+      .hero h1 { margin: 0 0 8px; font-size: 36px; }
+      .hero p { margin: 0; opacity: 0.9; font-size: 17px; }
+      .section { max-width: 1040px; margin: 0 auto; padding: 40px 24px; }
+      .section h2 { font-size: 22px; margin: 0 0 6px; }
+      .section .sub { color: #6b7280; margin: 0 0 20px; }
+      .embed { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 12px; }
+      iframe { width: 100%; height: 940px; border: 0; border-radius: 12px; display: block; }
+      .leads { margin-top: 32px; }
+      .leads pre { background: #111827; color: #d1fae5; padding: 14px; border-radius: 10px; font-size: 12px; overflow: auto; max-height: 320px; }
+      .note { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 12px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 20px; }
+      .note code { background: #fef3c7; padding: 1px 5px; border-radius: 4px; }
+      footer { text-align: center; color: #9ca3af; font-size: 13px; padding: 32px; }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="logo">▲ Sunshine State Roofing</div>
+      <div><a href="#">Services</a><a href="#">Reviews</a><a href="#">Financing</a><a href="#quote">Instant Quote</a></div>
+    </nav>
+    <header class="hero">
+      <h1>Orlando's roof replacement experts</h1>
+      <p>Family owned since 2009 · Licensed &amp; insured · Lifetime workmanship warranty</p>
+    </header>
+
+    <section class="section" id="quote">
+      <div class="note">
+        <strong>This is a demo page.</strong> It shows the Roof Estimator instant-quote widget embedded in a fictional contractor's
+        website with one <code>&lt;iframe&gt;</code>. Try your own address below. Leads aren't sent anywhere here; the page just
+        listens for the widget's <code>postMessage</code> and prints the payload under the form.
+      </div>
+      <h2>Get your roof price in 30 seconds</h2>
+      <p class="sub">No sales call required. Enter your address and see three options with financing.</p>
+      <div class="embed">
+        <iframe id="quote-widget" title="Instant roof quote" src="about:blank"></iframe>
+      </div>
+
+      <div class="leads">
+        <h2>What your website receives</h2>
+        <p class="sub">When a homeowner submits the form, the widget posts this JSON to your webhook and to the parent page.</p>
+        <pre id="lead-output">Waiting for a submission…</pre>
+      </div>
+    </section>
+
+    <footer>Demo page for <a href="https://github.com/gerelltroche/roof-estimator">Roof Estimator</a>. Sunshine State Roofing is not a real company.</footer>
+    <script type="module" src="/src/demo/main.ts"></script>
+  </body>
+</html>

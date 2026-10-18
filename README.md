@@ -4,7 +4,7 @@ Open source roof measurement, material takeoff, and estimating. The free alterna
 
 Draw a roof over satellite imagery, label the edges, set the pitch, and get a measurement report, a full material takeoff with formulas shown, and a Good / Better / Best estimate. No account, no server, no per-report fees. Everything runs in your browser; your data stays on your machine.
 
-**[Live demo](https://gerelltroche.github.io/roof-estimator/)** · [Feature comparison](docs/FEATURES.md) · [Roadmap](docs/ROADMAP.md) · [Contributing](CONTRIBUTING.md)
+**[Live app](https://gerelltroche.github.io/roof-estimator/)** · **[Widget demo](https://gerelltroche.github.io/roof-estimator/demo.html)** · [Feature comparison](docs/FEATURES.md) · [Roadmap](docs/ROADMAP.md) · [Contributing](CONTRIBUTING.md)
 
 ## What it does
 

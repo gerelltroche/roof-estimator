@@ -1,0 +1,24 @@
+{
+  "name": "@roof-estimator/footprints",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker serving pre-seeded building footprints (Overture) with Overpass fallback.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "download": "tsx scripts/download.ts",
+    "seed": "tsx scripts/seed.ts",
+    "upload": "tsx scripts/upload.ts",
+    "build": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241022.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "wrangler": "^3.90.0"
+  }
+}

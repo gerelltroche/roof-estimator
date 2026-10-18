@@ -7,10 +7,18 @@ export interface Footprint {
   source: "osm";
 }
 
+/**
+ * Overpass endpoints that send CORS headers. overpass-api.de, lz4 and z are
+ * the official cluster (round-robin DNS resolves to the same pool; naming
+ * them explicitly spreads the race). maps.mail.ru runs an independent
+ * instance. kumi.systems and private.coffee were dropped: both returned
+ * 500s without CORS headers in Oct 2026.
+ */
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
+  "https://z.overpass-api.de/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ];
 
 interface OverpassWay {

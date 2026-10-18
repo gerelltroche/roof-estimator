@@ -1,0 +1,15 @@
+name = "roof-footprints"
+main = "src/index.ts"
+compatibility_date = "2024-10-01"
+
+# Create the namespace once:  npx wrangler kv namespace create FOOTPRINTS
+# then paste the id it prints below.
+[[kv_namespaces]]
+binding = "FOOTPRINTS"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+[vars]
+# Comma-separated list of origins allowed to call this worker. "*" for any.
+ALLOWED_ORIGINS = "*"
+# Fall back to public Overpass for points outside the seeded area.
+OVERPASS_FALLBACK = "true"

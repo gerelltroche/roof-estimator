@@ -5,17 +5,67 @@ export interface GeocodeResult {
   center: LngLat;
 }
 
-/**
- * Address search via OpenStreetMap Nominatim. Fine for interactive use; respect
- * their usage policy (≤ 1 req/s, identify your app) if you self-host this.
- */
-export async function geocode(query: string): Promise<GeocodeResult[]> {
+async function withTimeout(url: string, ms: number): Promise<Response> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    return await fetch(url, { headers: { Accept: "application/json" }, signal: ctl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function nominatim(query: string): Promise<GeocodeResult[]> {
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("q", query);
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("limit", "5");
-  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
+  const res = await withTimeout(url.toString(), 8000);
+  if (!res.ok) throw new Error(`Nominatim ${res.status}`);
   const rows = (await res.json()) as { display_name: string; lat: string; lon: string }[];
   return rows.map((r) => ({ displayName: r.display_name, center: { lng: Number(r.lon), lat: Number(r.lat) } }));
+}
+
+/** Photon (komoot) is an OSM-backed geocoder that is usually faster than Nominatim. */
+async function photon(query: string): Promise<GeocodeResult[]> {
+  const url = new URL("https://photon.komoot.io/api/");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "5");
+  const res = await withTimeout(url.toString(), 8000);
+  if (!res.ok) throw new Error(`Photon ${res.status}`);
+  const json = (await res.json()) as {
+    features: { geometry: { coordinates: [number, number] }; properties: Record<string, string | undefined> }[];
+  };
+  return json.features.map((f) => {
+    const p = f.properties;
+    const name = [
+      [p.housenumber, p.street].filter(Boolean).join(" "),
+      p.city ?? p.town ?? p.village,
+      p.state,
+      p.postcode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    return { displayName: name || p.name || query, center: { lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] } };
+  });
+}
+
+/**
+ * Address search. Races Photon and Nominatim and returns whichever answers
+ * first with at least one result.
+ */
+export async function geocode(query: string): Promise<GeocodeResult[]> {
+  const attempts = [photon(query), nominatim(query)].map((p) =>
+    p.then((r) => {
+      if (!r.length) throw new Error("no results");
+      return r;
+    }),
+  );
+  try {
+    return await Promise.any(attempts);
+  } catch (err) {
+    const errors = (err as AggregateError).errors as Error[];
+    if (errors.every((e) => e.message === "no results")) return [];
+    throw new Error("Address lookup failed. Check your connection and try again.");
+  }
 }

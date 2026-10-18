@@ -8,6 +8,16 @@ export interface Footprint {
   source: "osm" | "mapbox";
 }
 
+export interface FootprintLookup {
+  footprints: Footprint[];
+  /** Which provider answered. */
+  provider: "mapbox" | "overpass" | "cache";
+  /** Wall-clock time for the lookup, ms. */
+  ms: number;
+  /** Providers that were tried and failed before the answer, if any. */
+  skipped: string[];
+}
+
 /**
  * Overpass endpoints that send CORS headers. overpass-api.de, lz4 and z are
  * the official cluster (round-robin DNS resolves to the same pool; naming
@@ -31,6 +41,17 @@ interface OverpassWay {
 
 /** In-memory cache so re-detecting at the same spot is instant. */
 const cache = new Map<string, Footprint[]>();
+const inflight = new Map<string, Promise<FootprintLookup>>();
+
+/**
+ * Start a lookup without waiting for it. Called right after geocoding so
+ * the result is usually cached by the time the user clicks "Detect roof".
+ */
+export function prefetchFootprints(at: LngLat, radiusM = 40): void {
+  void fetchFootprints(at, radiusM).catch(() => {
+    /* best effort */
+  });
+}
 
 function sortByHit(at: LngLat, fps: Footprint[]): Footprint[] {
   return fps.sort((a, b) => {
@@ -83,10 +104,13 @@ async function mapboxFootprints(at: LngLat, radiusM: number, token: string, time
         if (a.lng === b.lng && a.lat === b.lat) polygon.pop();
       }
       if (polygon.length < 3) continue;
-      if (touchesTileEdge(polygon, bounds)) throw new Error("clipped at tile edge");
       fps.push({ id: `mapbox-${f.id ?? fps.length}`, polygon, tags: f.properties, source: "mapbox" });
     }
-    return sortByHit(at, fps);
+    sortByHit(at, fps);
+    // Only the polygon we'd actually use matters; a clipped neighbor is irrelevant.
+    const best = fps[0];
+    if (best && touchesTileEdge(best.polygon, bounds)) throw new Error("building straddles a tile edge (clipped)");
+    return fps;
   } finally {
     clearTimeout(timer);
   }
@@ -117,24 +141,34 @@ function touchesTileEdge(poly: LngLat[], b: ReturnType<typeof tileBoundsZ16>): b
  * individual Overpass servers often queue requests for several seconds.
  * Returns the building containing the point first, then others by distance.
  */
-export async function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 20000): Promise<Footprint[]> {
+export function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 20000): Promise<FootprintLookup> {
   const key = `${at.lat.toFixed(5)},${at.lng.toFixed(5)},${radiusM}`;
   const hit = cache.get(key);
-  if (hit) return hit;
+  if (hit) return Promise.resolve({ footprints: hit, provider: "cache", ms: 0, skipped: [] });
+  const pending = inflight.get(key);
+  if (pending) return pending;
+  const p = lookup(at, radiusM, timeoutMs, key).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
 
+async function lookup(at: LngLat, radiusM: number, timeoutMs: number, key: string): Promise<FootprintLookup> {
+  const t0 = performance.now();
   const reasons: string[] = [];
   if (MAPBOX_TOKEN) {
     try {
       const fps = await mapboxFootprints(at, radiusM, MAPBOX_TOKEN, 10000);
       if (fps.length) {
         cache.set(key, fps);
-        return fps;
+        const ms = performance.now() - t0;
+        console.info(`[footprint] Mapbox tilequery: ${fps.length} buildings in ${ms.toFixed(0)} ms`);
+        return { footprints: fps, provider: "mapbox", ms, skipped: [] };
       }
       reasons.push("Mapbox: no usable building polygon");
     } catch (err) {
       const e = err as Error;
       reasons.push(`Mapbox: ${e.name === "AbortError" ? "timed out" : e.message}`);
-      console.warn("[footprint] Mapbox tilequery failed, falling back to Overpass:", err);
+      console.warn(`[footprint] Mapbox tilequery failed after ${(performance.now() - t0).toFixed(0)} ms, falling back to Overpass:`, err);
     }
   }
 
@@ -185,5 +219,7 @@ export async function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 2000
     .filter((f) => f.polygon.length >= 3);
   sortByHit(at, fps);
   cache.set(key, fps);
-  return fps;
+  const ms = performance.now() - t0;
+  console.info(`[footprint] Overpass: ${fps.length} buildings in ${ms.toFixed(0)} ms`);
+  return { footprints: fps, provider: "overpass", ms, skipped: reasons };
 }

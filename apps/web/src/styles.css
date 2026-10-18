@@ -549,3 +549,12 @@ code {
   background: none !important;
   box-shadow: none !important;
 }
+
+.detect-status {
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

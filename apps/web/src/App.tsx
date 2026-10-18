@@ -12,7 +12,7 @@ import {
   type RoofStyle,
 } from "@roof-estimator/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchFootprints } from "./footprint";
+import { fetchFootprints, prefetchFootprints } from "./footprint";
 import { geocode, type GeocodeResult } from "./geocode";
 import { WidgetPanel } from "./panels/WidgetPanel";
 import { MapView, type MapHandle } from "./MapView";
@@ -46,6 +46,7 @@ export function App() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [detectStyle, setDetectStyle] = useState<RoofStyle>("hip");
   const [detecting, setDetecting] = useState(false);
+  const [detectStatus, setDetectStatus] = useState<string | null>(null);
   const [lastSearch, setLastSearch] = useState<LngLat | null>(null);
 
   const report = useMemo(() => (state.model.facets.length ? measureRoof(state.model) : null), [state.model]);
@@ -101,6 +102,7 @@ export function App() {
       const first = r[0];
       if (first) {
         setLastSearch(first.center);
+        prefetchFootprints(first.center);
         mapRef.current?.flyTo(first.center, 20);
         if (!state.model.address) dispatch({ type: "model:meta", patch: { address: first.displayName.split(",").slice(0, 3).join(",") } });
       }
@@ -141,8 +143,10 @@ export function App() {
     if (!point) return;
     setDetecting(true);
     try {
-      const fps = await fetchFootprints(point);
-      const fp = fps[0];
+      const result = await fetchFootprints(point);
+      const fp = result.footprints[0];
+      const label = { mapbox: "Mapbox", overpass: "OpenStreetMap", cache: "cache" }[result.provider];
+      setDetectStatus(`${label} · ${(result.ms / 1000).toFixed(1)} s${result.skipped.length ? ` (after ${result.skipped.join("; ")})` : ""}`);
       if (!fp) {
         alert("No building found here in OpenStreetMap. Zoom to the roof and try again, or draw it manually.");
         return;
@@ -188,6 +192,7 @@ export function App() {
                   key={r.displayName}
                   onClick={() => {
                     setLastSearch(r.center);
+                    prefetchFootprints(r.center);
                     mapRef.current?.flyTo(r.center, 20);
                     setResults([]);
                   }}
@@ -216,6 +221,11 @@ export function App() {
               <option value="outline">Outline only</option>
             </select>
           </span>
+          {detectStatus && (
+            <span className="detect-status" title="Footprint provider and lookup time">
+              {detectStatus}
+            </span>
+          )}
           <button onClick={() => addPreset("gable")} title="Drop a 50×30 gable at the map center">
             + Gable
           </button>

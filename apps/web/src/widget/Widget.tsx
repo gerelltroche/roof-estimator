@@ -58,8 +58,8 @@ export function Widget() {
       const hit = results[0];
       if (!hit) throw new Error("We couldn't find that address. Try adding the city and state.");
       setCenter(hit.center);
-      const fps = await fetchFootprints(hit.center, 35);
-      const fp = fps[0];
+      const { footprints } = await fetchFootprints(hit.center, 35);
+      const fp = footprints[0];
       if (!fp) {
         setStep("manual");
         return;

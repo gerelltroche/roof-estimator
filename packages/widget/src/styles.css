@@ -1,0 +1,292 @@
+/*
+ * <roof-quote> styles. Everything is scoped under .roof-quote and themed
+ * through CSS custom properties you can set on the element or any ancestor:
+ *
+ *   roof-quote { --rq-accent: #0f766e; --rq-radius: 8px; --rq-font: Inter, sans-serif; }
+ *
+ * The widget renders in light DOM, so any .rq-* class can also be overridden
+ * with ordinary CSS.
+ */
+.roof-quote {
+  --rq-accent: var(--rq-accent-override, #f59e0b);
+  --rq-on-accent: #fff;
+  --rq-text: #111827;
+  --rq-muted: #6b7280;
+  --rq-line: #e5e7eb;
+  --rq-bg: #f9fafb;
+  --rq-card: #fff;
+  --rq-radius: 14px;
+  --rq-radius-sm: 10px;
+  --rq-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --rq-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  font-family: var(--rq-font);
+  color: var(--rq-text);
+  background: var(--rq-bg);
+  box-sizing: border-box;
+  display: block;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  border-radius: var(--rq-radius);
+}
+.roof-quote *,
+.roof-quote *::before,
+.roof-quote *::after {
+  box-sizing: border-box;
+}
+.roof-quote .rq-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.roof-quote .rq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+.roof-quote .rq-company {
+  font-weight: 700;
+  font-size: 17px;
+}
+.roof-quote .rq-phone {
+  color: var(--rq-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.roof-quote .rq-card {
+  background: var(--rq-card);
+  border: 1px solid var(--rq-line);
+  border-radius: var(--rq-radius);
+  padding: 22px;
+  box-shadow: var(--rq-shadow);
+}
+.roof-quote .rq-center {
+  text-align: center;
+}
+.roof-quote h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+.roof-quote h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.roof-quote .rq-sub {
+  color: var(--rq-muted);
+  margin: 0 0 14px;
+}
+.roof-quote .rq-addr {
+  display: flex;
+  gap: 8px;
+}
+.roof-quote .rq-addr input {
+  flex: 1;
+}
+.roof-quote input,
+.roof-quote textarea {
+  width: 100%;
+  border: 1px solid var(--rq-line);
+  border-radius: var(--rq-radius-sm);
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+}
+.roof-quote input:focus,
+.roof-quote textarea:focus {
+  outline: none;
+  border-color: var(--rq-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rq-accent) 25%, transparent);
+}
+.roof-quote .rq-btn {
+  background: var(--rq-accent);
+  color: var(--rq-on-accent);
+  border: none;
+  border-radius: var(--rq-radius-sm);
+  padding: 12px 18px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.roof-quote .rq-btn:disabled {
+  opacity: 0.6;
+}
+.roof-quote .rq-link {
+  background: none;
+  border: none;
+  color: var(--rq-accent);
+  font: inherit;
+  cursor: pointer;
+  padding: 6px 0;
+  text-decoration: underline;
+}
+.roof-quote .rq-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+.roof-quote .rq-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--rq-muted);
+}
+.roof-quote .rq-hint {
+  color: var(--rq-muted);
+  font-size: 13px;
+}
+.roof-quote .rq-error {
+  color: #dc2626;
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+.roof-quote .rq-fine {
+  color: var(--rq-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 12px 0 0;
+}
+.roof-quote .rq-spinner {
+  width: 36px;
+  height: 36px;
+  border: 4px solid var(--rq-line);
+  border-top-color: var(--rq-accent);
+  border-radius: 50%;
+  margin: 10px auto 14px;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.roof-quote .rq-quote {
+  padding: 16px;
+}
+.roof-quote .rq-quote-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.roof-quote .rq-addr-line {
+  font-weight: 600;
+}
+.roof-quote .rq-roof-stats {
+  color: var(--rq-muted);
+  font-size: 14px;
+  margin-top: 2px;
+}
+.roof-quote .rq-map {
+  height: 260px;
+  border-radius: var(--rq-radius-sm);
+  overflow: hidden;
+}
+.roof-quote .rq-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.roof-quote .rq-tier {
+  position: relative;
+  background: var(--rq-card);
+  border: 1px solid var(--rq-line);
+  border-radius: var(--rq-radius);
+  padding: 18px 14px 14px;
+  text-align: center;
+}
+.roof-quote .rq-tier-featured {
+  border-color: var(--rq-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rq-accent) 18%, transparent);
+}
+.roof-quote .rq-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--rq-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.roof-quote .rq-tier-name {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  color: var(--rq-muted);
+}
+.roof-quote .rq-tier-price {
+  font-size: 19px;
+  font-weight: 800;
+  margin: 6px 0 2px;
+}
+.roof-quote .rq-tier-monthly {
+  font-size: 13px;
+  color: var(--rq-muted);
+}
+.roof-quote .rq-tier-desc {
+  font-size: 12.5px;
+  color: var(--rq-muted);
+  margin: 10px 0 0;
+  line-height: 1.4;
+}
+.roof-quote .rq-lead {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.roof-quote .rq-lead input:first-child,
+.roof-quote .rq-lead textarea,
+.roof-quote .rq-lead .rq-btn,
+.roof-quote .rq-lead .rq-error {
+  grid-column: 1 / -1;
+}
+.roof-quote .rq-footer {
+  text-align: center;
+  color: var(--rq-muted);
+  font-size: 12px;
+}
+.roof-quote .rq-footer a {
+  color: inherit;
+}
+@media (max-width: 560px) {
+  .roof-quote .rq-tiers {
+    grid-template-columns: 1fr;
+  }
+  .roof-quote .rq-lead {
+    grid-template-columns: 1fr;
+  }
+  .roof-quote .rq-addr {
+    flex-direction: column;
+  }
+}
+
+.mapbox-wordmark {
+  font: 700 12px/1 system-ui, sans-serif;
+  color: #fff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+  text-decoration: none;
+  padding: 2px 6px;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.roof-quote .rq-mapbox-wordmark {
+  font: 700 12px/1 inherit;
+  color: #fff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+  text-decoration: none;
+  padding: 2px 6px;
+  background: none !important;
+  box-shadow: none !important;
+}

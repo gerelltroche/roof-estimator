@@ -1,25 +1,32 @@
 import type { RoofStyle } from "@roof-estimator/core";
+import { DEFAULT_WIDGET_CONFIG, encodeWidgetConfig, type WidgetConfig } from "@roof-estimator/widget/react";
 import { useEffect, useMemo, useState } from "react";
 import type { AppState } from "../state";
-import { DEFAULT_WIDGET_CONFIG, encodeWidgetConfig, type WidgetConfig } from "../widget/config";
 
 const KEY = "roof-estimator:widget:v1";
+/** Where the built component is hosted. Mirrors the Pages deploy; change for self-hosting. */
+const CDN_BASE = "https://gerelltroche.github.io/roof-estimator/widget";
 
 type Branding = Omit<WidgetConfig, "pricing" | "takeoff">;
 
+function defaults(): Branding {
+  const { pricing: _p, takeoff: _t, ...rest } = DEFAULT_WIDGET_CONFIG;
+  return rest;
+}
 function loadBranding(): Branding {
   try {
     const raw = localStorage.getItem(KEY);
-    const { pricing: _p, takeoff: _t, ...defaults } = DEFAULT_WIDGET_CONFIG;
-    return raw ? { ...defaults, ...(JSON.parse(raw) as Partial<Branding>) } : defaults;
+    return raw ? { ...defaults(), ...(JSON.parse(raw) as Partial<Branding>) } : defaults();
   } catch {
-    const { pricing: _p, takeoff: _t, ...defaults } = DEFAULT_WIDGET_CONFIG;
-    return defaults;
+    return defaults();
   }
 }
 
+type Snippet = "html" | "astro" | "react";
+
 export function WidgetPanel({ state }: { state: AppState }) {
   const [b, setB] = useState<Branding>(loadBranding);
+  const [snippet, setSnippet] = useState<Snippet>("astro");
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     try {
@@ -29,41 +36,125 @@ export function WidgetPanel({ state }: { state: AppState }) {
     }
   }, [b]);
 
-  const url = useMemo(() => {
-    const cfg: WidgetConfig = { ...b, pricing: state.pricingConfig, takeoff: state.takeoffConfig };
-    const base = new URL("widget.html", location.href);
-    base.searchParams.set("c", encodeWidgetConfig(cfg));
-    return base.toString();
+  // Pricing/takeoff come from the app; branding from this panel. The Mapbox
+  // token is NOT baked in: clients supply their own via the attribute.
+  const encoded = useMemo(() => {
+    const { mapboxToken: _t, ...rest } = b;
+    const cfg: WidgetConfig = { ...rest, pricing: state.pricingConfig, takeoff: state.takeoffConfig };
+    return encodeWidgetConfig(cfg);
   }, [b, state.pricingConfig, state.takeoffConfig]);
 
-  const embed = `<iframe src="${url}" style="width:100%;max-width:760px;height:900px;border:0;border-radius:12px" title="Instant roof quote"></iframe>`;
+  const previewUrl = useMemo(() => {
+    const u = new URL("widget.html", location.href);
+    u.searchParams.set("c", encoded);
+    return u.toString();
+  }, [encoded]);
+
+  const tag = `<roof-quote
+  mapbox-token="YOUR_MAPBOX_PUBLIC_TOKEN"
+  config="${encoded}"
+></roof-quote>`;
+
+  const snippets: Record<Snippet, string> = {
+    html: `<!-- Anywhere in your page -->
+<script type="module" src="${CDN_BASE}/roof-quote.js"></script>
+
+${tag}
+
+<style>
+  roof-quote { --rq-accent: ${b.color}; --rq-radius: 10px; }
+</style>
+
+<script>
+  // Optional: handle leads in your own code (preventDefault skips the webhook)
+  document.querySelector("roof-quote").addEventListener("roof-quote:lead", (e) => {
+    console.log(e.detail);
+  });
+</script>`,
+    astro: `---
+// src/components/RoofQuote.astro
+// pnpm add @roof-estimator/widget   (or use the <script src> CDN tag instead)
+const token = import.meta.env.PUBLIC_MAPBOX_TOKEN;
+---
+<roof-quote
+  mapbox-token={token}
+  config="${encoded}"
+></roof-quote>
+
+<script>
+  import "@roof-estimator/widget";
+
+  document.querySelector("roof-quote")?.addEventListener("roof-quote:lead", (e) => {
+    // e.detail has the lead + roof measurements + tier prices.
+    // e.preventDefault() if you want to skip the webhook and POST it yourself.
+  });
+</script>
+
+<style>
+  roof-quote { --rq-accent: ${b.color}; --rq-radius: 10px; --rq-font: inherit; }
+</style>`,
+    react: `import { RoofQuote, decodeWidgetConfig } from "@roof-estimator/widget/react";
+import "@roof-estimator/widget/styles.css";
+
+const config = decodeWidgetConfig("${encoded}");
+
+export function Quote() {
+  return (
+    <RoofQuote
+      config={{ ...config, mapboxToken: process.env.NEXT_PUBLIC_MAPBOX_TOKEN }}
+      onLead={(lead) => console.log(lead)}
+    />
+  );
+}`,
+  };
+
   const set = (patch: Partial<Branding>) => setB({ ...b, ...patch });
+  const copy = (text: string) => {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
 
   return (
     <div className="panel">
       <section>
         <h3>Instant quote widget</h3>
         <p className="hint">
-          A homeowner-facing page: they type an address, we find the roof from OpenStreetMap, price it with the settings in your Takeoff and
-          Estimate tabs, and show Good / Better / Best ranges with a lead form. Embed it on your site with the snippet below. Everything is
-          encoded in the URL, so there is no server and no account.
+          <code>&lt;roof-quote&gt;</code> is a web component: one script, one tag, works in Astro, plain HTML, WordPress, React, Vue,
+          Svelte. The homeowner types an address, the roof is measured from its building footprint, and they see Good / Better / Best
+          ranges priced with the settings in your Takeoff and Estimate tabs, plus a lead form. Everything below is encoded in the{" "}
+          <code>config</code> attribute, so there is no server.
         </p>
         <div className="row">
-          <a className="button-link" href={url} target="_blank" rel="noreferrer">
-            Preview widget ↗
+          <a className="button-link" href={previewUrl} target="_blank" rel="noreferrer">
+            Preview ↗
           </a>
-          <button
-            onClick={() => {
-              void navigator.clipboard.writeText(embed).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              });
-            }}
-          >
-            {copied ? "Copied!" : "Copy embed code"}
+          <a className="button-link" href={new URL("demo.html", location.href).toString()} target="_blank" rel="noreferrer">
+            See it on a sample site ↗
+          </a>
+        </div>
+      </section>
+
+      <section>
+        <h3>Embed code</h3>
+        <div className="row">
+          {(["astro", "html", "react"] as Snippet[]).map((s) => (
+            <button key={s} className={`small ${snippet === s ? "primary" : ""}`} onClick={() => setSnippet(s)}>
+              {s === "html" ? "HTML / any site" : s === "astro" ? "Astro" : "React"}
+            </button>
+          ))}
+          <button className="small" onClick={() => copy(snippets[snippet])}>
+            {copied ? "Copied!" : "Copy"}
           </button>
         </div>
-        <textarea readOnly rows={4} value={embed} onFocus={(e) => e.target.select()} />
+        <textarea readOnly rows={14} value={snippets[snippet]} onFocus={(e) => e.target.select()} spellCheck={false} />
+        <p className="hint">
+          Your clients need their own free Mapbox token (restricted to their domain) in <code>mapbox-token</code>; it's not stored in the
+          config. Theme with CSS variables (<code>--rq-accent</code>, <code>--rq-radius</code>, <code>--rq-font</code>,{" "}
+          <code>--rq-bg</code>, <code>--rq-card</code>, <code>--rq-text</code>) or override any <code>.rq-*</code> class; the widget
+          renders in the page's DOM, not a shadow root or iframe.
+        </p>
       </section>
 
       <section>
@@ -123,7 +214,7 @@ export function WidgetPanel({ state }: { state: AppState }) {
             <input type="number" min={0} max={40} value={b.rangePct} onChange={(e) => set({ rangePct: Number(e.target.value) })} />
           </label>
         </div>
-        <p className="hint">Material prices, labor, overhead and profit come from the Takeoff and Estimate tabs and are baked into the URL.</p>
+        <p className="hint">Material prices, labor, overhead and profit come from the Takeoff and Estimate tabs and are baked into the config.</p>
       </section>
 
       <section>
@@ -152,9 +243,9 @@ export function WidgetPanel({ state }: { state: AppState }) {
           <input placeholder="https://hooks.zapier.com/… or your CRM endpoint" value={b.webhook ?? ""} onChange={(e) => set({ webhook: e.target.value })} />
         </label>
         <p className="hint">
-          Each submission POSTs the lead, address, roof measurements and tier prices as JSON. Works with Zapier, Make, n8n, or any endpoint
-          that accepts CORS requests. The widget also fires a <code>postMessage</code> to the parent page with the same payload, so you
-          can catch it in your own site's JavaScript without any server.
+          Each submission POSTs the lead, address, roof measurements and tier prices as JSON. The element also dispatches a{" "}
+          <code>roof-quote:lead</code> DOM event with the same payload; call <code>preventDefault()</code> on it to handle delivery
+          yourself and skip the webhook.
         </p>
       </section>
     </div>

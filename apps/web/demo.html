@@ -18,8 +18,16 @@
       .section { max-width: 1040px; margin: 0 auto; padding: 40px 24px; }
       .section h2 { font-size: 22px; margin: 0 0 6px; }
       .section .sub { color: #6b7280; margin: 0 0 20px; }
-      .embed { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 12px; }
-      iframe { width: 100%; height: 940px; border: 0; border-radius: 12px; display: block; }
+      /* Theme the widget from the host page with CSS variables. */
+      roof-quote {
+        --rq-accent: #0f766e;
+        --rq-radius: 10px;
+        --rq-bg: transparent;
+        padding: 0;
+        max-width: none;
+      }
+      /* …or override any class directly. */
+      roof-quote .rq-tier-price { font-size: 22px; }
       .leads { margin-top: 32px; }
       .leads pre { background: #111827; color: #d1fae5; padding: 14px; border-radius: 10px; font-size: 12px; overflow: auto; max-height: 320px; }
       .note { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 12px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 20px; }
@@ -39,20 +47,29 @@
 
     <section class="section" id="quote">
       <div class="note">
-        <strong>This is a demo page.</strong> It shows the Roof Estimator instant-quote widget embedded in a fictional contractor's
-        website with one <code>&lt;iframe&gt;</code>. Try your own address below. Leads aren't sent anywhere here; the page just
-        listens for the widget's <code>postMessage</code> and prints the payload under the form.
+        <strong>This is a demo page.</strong> It shows the <code>&lt;roof-quote&gt;</code> web component dropped into a fictional
+        contractor's site, themed with CSS variables to match their brand. Try your own address below. Leads aren't sent anywhere
+        here; the page listens for the <code>roof-quote:lead</code> event and prints the payload under the form.
       </div>
       <h2>Get your roof price in 30 seconds</h2>
       <p class="sub">No sales call required. Enter your address and see three options with financing.</p>
-      <div class="embed">
-        <iframe id="quote-widget" title="Instant roof quote" src="about:blank"></iframe>
-      </div>
+      <roof-quote
+        company="Sunshine State Roofing"
+        phone="(407) 555-0142"
+        color="#0f766e"
+        headline="Get your instant roof quote"
+        cta="Lock in this price with a free inspection"
+        pitch="6"
+        style="hip"
+        range-pct="10"
+        financing-apr="8.99"
+        financing-months="144"
+      ></roof-quote>
 
       <div class="leads">
         <h2>What your website receives</h2>
-        <p class="sub">When a homeowner submits the form, the widget posts this JSON to your webhook and to the parent page.</p>
-        <pre id="lead-output">Waiting for a submission…</pre>
+        <p class="sub">The widget fires <code>roof-quote:quote</code> when a price is shown and <code>roof-quote:lead</code> on submit (and POSTs the same JSON to your webhook if you set one).</p>
+        <pre id="lead-output">Waiting…</pre>
       </div>
     </section>
 

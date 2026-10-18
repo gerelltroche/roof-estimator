@@ -26,10 +26,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @roof-estimator/core build
+      - run: pnpm --filter @roof-estimator/geo build
+      - run: pnpm --filter @roof-estimator/widget build
       - run: pnpm --filter @roof-estimator/web build
         env:
           VITE_BASE: /roof-estimator/
           VITE_MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+      # Host the embeddable component next to the app: /roof-estimator/widget/roof-quote.js
+      - run: mkdir -p apps/web/dist/widget && cp packages/widget/dist/*.js packages/widget/dist/*.css apps/web/dist/widget/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/dist

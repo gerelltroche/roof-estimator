@@ -1,0 +1,59 @@
+---
+/**
+ * Drop-in Astro component for the Roof Estimator instant quote widget.
+ *
+ *   pnpm add @roof-estimator/widget
+ *   PUBLIC_MAPBOX_TOKEN=pk.… in .env
+ *
+ * Usage: <RoofQuote company="Acme Roofing" color="#0f766e" webhook="…" />
+ * Any prop maps 1:1 to a <roof-quote> attribute; `config` takes the
+ * base64url string from the app's Widget tab for full pricing.
+ */
+interface Props {
+  company: string;
+  phone?: string;
+  color?: string;
+  headline?: string;
+  cta?: string;
+  pitch?: number;
+  style?: "hip" | "gable";
+  rangePct?: number;
+  financingApr?: number;
+  financingMonths?: number;
+  webhook?: string;
+  config?: string;
+}
+const { company, phone, color = "#f59e0b", headline, cta, pitch, style, rangePct, financingApr, financingMonths, webhook, config } =
+  Astro.props;
+const token = import.meta.env.PUBLIC_MAPBOX_TOKEN;
+---
+
+<roof-quote
+  mapbox-token={token}
+  company={company}
+  phone={phone}
+  color={color}
+  headline={headline}
+  cta={cta}
+  pitch={pitch}
+  style={style}
+  range-pct={rangePct}
+  financing-apr={financingApr}
+  financing-months={financingMonths}
+  webhook={webhook}
+  config={config}
+></roof-quote>
+
+<script>
+  import "@roof-estimator/widget";
+</script>
+
+<style define:vars={{ color }}>
+  roof-quote {
+    --rq-accent: var(--color);
+    --rq-font: inherit;
+    --rq-bg: transparent;
+    padding: 0;
+    max-width: none;
+  }
+</style>

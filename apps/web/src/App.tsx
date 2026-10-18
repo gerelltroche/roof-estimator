@@ -12,8 +12,8 @@ import {
   type RoofStyle,
 } from "@roof-estimator/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchFootprints, FOOTPRINTS_AVAILABLE, prefetchFootprints } from "./footprint";
-import { geocode, type GeocodeResult } from "./geocode";
+import { fetchFootprints, geocode, prefetchFootprints, type GeocodeResult } from "@roof-estimator/geo";
+import { FOOTPRINTS_AVAILABLE, MAPBOX_TOKEN } from "./providers";
 import { WidgetPanel } from "./panels/WidgetPanel";
 import { MapView, type MapHandle } from "./MapView";
 import { EstimatePanel } from "./panels/EstimatePanel";
@@ -97,12 +97,12 @@ export function App() {
     if (!query.trim()) return;
     setSearching(true);
     try {
-      const r = await geocode(query);
+      const r = await geocode(query, { mapboxToken: MAPBOX_TOKEN });
       setResults(r);
       const first = r[0];
       if (first) {
         setLastSearch(first.center);
-        prefetchFootprints(first.center);
+        prefetchFootprints(first.center, { mapboxToken: MAPBOX_TOKEN });
         mapRef.current?.flyTo(first.center, 20);
         if (!state.model.address) dispatch({ type: "model:meta", patch: { address: first.displayName.split(",").slice(0, 3).join(",") } });
       }
@@ -143,7 +143,7 @@ export function App() {
     if (!point) return;
     setDetecting(true);
     try {
-      const result = await fetchFootprints(point);
+      const result = await fetchFootprints(point, { mapboxToken: MAPBOX_TOKEN });
       const fp = result.footprints[0];
       setDetectStatus(result.provider === "cache" ? "cached" : `Mapbox · ${(result.ms / 1000).toFixed(2)} s`);
       if (!fp) {
@@ -191,7 +191,7 @@ export function App() {
                   key={r.displayName}
                   onClick={() => {
                     setLastSearch(r.center);
-                    prefetchFootprints(r.center);
+                    prefetchFootprints(r.center, { mapboxToken: MAPBOX_TOKEN });
                     mapRef.current?.flyTo(r.center, 20);
                     setResults([]);
                   }}

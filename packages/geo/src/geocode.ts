@@ -1,5 +1,4 @@
 import type { LngLat } from "@roof-estimator/core";
-import { MAPBOX_TOKEN } from "./providers";
 
 export interface GeocodeResult {
   displayName: string;
@@ -70,14 +69,19 @@ async function mapbox(query: string, token: string): Promise<GeocodeResult[]> {
   }));
 }
 
+export interface GeocodeOptions {
+  /** Public Mapbox token. With it, Mapbox Geocoding v6 is used; otherwise Photon/Nominatim. */
+  mapboxToken?: string;
+}
+
 /**
  * Address search. With a Mapbox token, uses Mapbox; otherwise races Photon and Nominatim and returns whichever answers
  * first with at least one result.
  */
-export async function geocode(query: string): Promise<GeocodeResult[]> {
-  if (MAPBOX_TOKEN) {
+export async function geocode(query: string, opts: GeocodeOptions = {}): Promise<GeocodeResult[]> {
+  if (opts.mapboxToken) {
     try {
-      const r = await mapbox(query, MAPBOX_TOKEN);
+      const r = await mapbox(query, opts.mapboxToken);
       if (r.length) return r;
     } catch (err) {
       console.warn("[geocode] Mapbox failed, falling back to OSM:", err);

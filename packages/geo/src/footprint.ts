@@ -1,7 +1,6 @@
 import { centroidLngLat, geoDistanceFeet, pointInPolygon, type LngLat } from "@roof-estimator/core";
 import { VectorTile } from "@mapbox/vector-tile";
 import { PbfReader } from "pbf";
-import { MAPBOX_TOKEN } from "./providers";
 
 export interface Footprint {
   id: string;
@@ -18,7 +17,13 @@ export interface FootprintLookup {
   ms: number;
 }
 
-export const FOOTPRINTS_AVAILABLE = Boolean(MAPBOX_TOKEN);
+export interface FootprintOptions {
+  /** Public Mapbox token. Required: footprints come from Mapbox Streets vector tiles. */
+  mapboxToken?: string;
+  /** Search radius around the point, metres. */
+  radiusM?: number;
+  timeoutMs?: number;
+}
 
 /** In-memory cache so re-detecting at the same spot is instant. */
 const cache = new Map<string, Footprint[]>();
@@ -28,8 +33,8 @@ const inflight = new Map<string, Promise<FootprintLookup>>();
  * Start a lookup without waiting for it. Called right after geocoding so
  * the result is usually cached by the time the user clicks "Detect roof".
  */
-export function prefetchFootprints(at: LngLat, radiusM = 40): void {
-  void fetchFootprints(at, radiusM).catch(() => {
+export function prefetchFootprints(at: LngLat, opts: FootprintOptions = {}): void {
+  void fetchFootprints(at, opts).catch(() => {
     /* best effort */
   });
 }
@@ -79,7 +84,8 @@ async function footprintsFromTile(at: LngLat, radiusM: number, z: number, token:
   try {
     const res = await fetch(url, { signal: ctl.signal });
     if (!res.ok) throw new Error(`Mapbox tile HTTP ${res.status}`);
-    const tile = new VectorTile(new PbfReader(await res.arrayBuffer()));
+    // pbf v5 renamed its class; the vector-tile typings still name the old one.
+    const tile = new VectorTile(new PbfReader(await res.arrayBuffer()) as unknown as ConstructorParameters<typeof VectorTile>[0]);
     const layer = tile.layers.building;
     if (!layer) return [];
     const radiusFt = radiusM * 3.28084;
@@ -131,24 +137,26 @@ function extendsOutsideTile(poly: LngLat[], b: { lng0: number; lng1: number; lat
  * tiles). Returns the building containing the point first, then others by
  * distance. Results are cached and in-flight lookups deduplicated.
  */
-export function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 10000): Promise<FootprintLookup> {
+export function fetchFootprints(at: LngLat, opts: FootprintOptions = {}): Promise<FootprintLookup> {
+  const radiusM = opts.radiusM ?? 40;
+  const timeoutMs = opts.timeoutMs ?? 10000;
   const key = `${at.lat.toFixed(5)},${at.lng.toFixed(5)},${radiusM}`;
   const hit = cache.get(key);
   if (hit) return Promise.resolve({ footprints: hit, provider: "cache", ms: 0 });
   const pending = inflight.get(key);
   if (pending) return pending;
-  const p = lookup(at, radiusM, timeoutMs, key).finally(() => inflight.delete(key));
+  const p = lookup(at, radiusM, timeoutMs, key, opts.mapboxToken).finally(() => inflight.delete(key));
   inflight.set(key, p);
   return p;
 }
 
-async function lookup(at: LngLat, radiusM: number, timeoutMs: number, key: string): Promise<FootprintLookup> {
-  if (!MAPBOX_TOKEN) {
-    throw new Error("Automatic roof detection needs a Mapbox token (VITE_MAPBOX_TOKEN). Draw the roof manually instead.");
+async function lookup(at: LngLat, radiusM: number, timeoutMs: number, key: string, token?: string): Promise<FootprintLookup> {
+  if (!token) {
+    throw new Error("Automatic roof detection needs a Mapbox token. Draw the roof manually instead.");
   }
   const t0 = performance.now();
   try {
-    const fps = await mapboxFootprints(at, radiusM, MAPBOX_TOKEN, timeoutMs);
+    const fps = await mapboxFootprints(at, radiusM, token, timeoutMs);
     cache.set(key, fps);
     const ms = performance.now() - t0;
     console.info(`[footprint] Mapbox vector tile: ${fps.length} buildings in ${ms.toFixed(0)} ms`);

@@ -4,7 +4,7 @@ Open source roof measurement, material takeoff, and estimating. The free alterna
 
 Draw a roof over satellite imagery, label the edges, set the pitch, and get a measurement report, a full material takeoff with formulas shown, and a Good / Better / Best estimate. No account, no server, no per-report fees. Everything runs in your browser; your data stays on your machine.
 
-**[Live app](https://gerelltroche.github.io/roof-estimator/)** · **[Widget demo](https://gerelltroche.github.io/roof-estimator/demo.html)** · [Feature comparison](docs/FEATURES.md) · [Roadmap](docs/ROADMAP.md) · [Contributing](CONTRIBUTING.md)
+**[Live app](https://gerelltroche.github.io/roof-estimator/)** · **[Widget demo](https://gerelltroche.github.io/roof-estimator/demo.html)** · [Widget docs](packages/widget) · [Feature comparison](docs/FEATURES.md) · [Roadmap](docs/ROADMAP.md) · [Contributing](CONTRIBUTING.md)
 
 ## What it does
 
@@ -15,7 +15,7 @@ Draw a roof over satellite imagery, label the edges, set the pitch, and get a me
 | **Report** | Total area, squares, footprint area, areas-per-pitch table, predominant pitch, linear feet of every edge type (shared ridges/hips/valleys counted once), complexity rating, suggested waste, and a 0–30% waste table rounded to ⅓ square, matching the format of an EagleView Premium report. |
 | **Takeoff** | Shingle bundles, underlayment rolls, ice & water, starter, hip/ridge cap, drip edge, valley metal, step flashing, pipe boots and other penetrations, ridge vent, nails, cap nails, sealant. Every quantity shows the formula it came from. All coverage assumptions are editable. |
 | **Estimate** | Material pricing, labor by pitch tier (walkable / steep / very steep, area-weighted), tear-off per layer, multi-story, penetrations, disposal, permit, delivery, decking allowance, overhead, profit margin, sales tax. Three tiers out of the box. |
-| **Instant quote widget** | A Roofle-style homeowner page (`widget.html`): enter an address → roof measured from the OSM footprint → Good / Better / Best price ranges with an optional monthly financing teaser → lead form that POSTs JSON to your webhook (Zapier, n8n, your CRM) and `postMessage`s the parent page. Configure branding and assumptions in the **Widget** tab; your pricing is encoded into the embed URL so there is no server. |
+| **Instant quote widget** | `<roof-quote>`, a web component ([`@roof-estimator/widget`](packages/widget)) for contractor sites: enter an address → roof measured from the building footprint → Good / Better / Best price ranges with an optional monthly financing teaser → lead form that POSTs JSON to a webhook and fires DOM events. Works in Astro, plain HTML, React. Themed with CSS variables; pricing, copy and assumptions set by attributes or a config from the **Widget** tab. |
 | **Output** | Print-ready report with a plan-view diagram (use Save as PDF), JSON import/export, autosave. |
 
 ## Quick start
@@ -76,8 +76,10 @@ A roof model is plain JSON: facets as plan-view polygons (lng/lat), a pitch per 
 
 ```
 packages/core   @roof-estimator/core — geometry, measurement, takeoff, pricing, presets (tested)
-apps/web        Vite + React + MapLibre app
-examples/       Sample roof models
+packages/geo    @roof-estimator/geo — geocoding, building footprints, satellite styles
+packages/widget @roof-estimator/widget — <roof-quote> web component + React component
+apps/web        Vite + React + MapLibre app (also hosts widget.html and demo.html)
+examples/       Sample roof models, Astro component
 docs/           Feature comparison with paid tools, roadmap
 ```
 

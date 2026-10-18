@@ -1,4 +1,5 @@
 import type { LngLat } from "@roof-estimator/core";
+import { MAPBOX_TOKEN } from "./providers";
 
 export interface GeocodeResult {
   displayName: string;
@@ -50,11 +51,38 @@ async function photon(query: string): Promise<GeocodeResult[]> {
   });
 }
 
+/** Mapbox Geocoding v6. Fast, US-biased, returns rooftop-accurate points for addresses. */
+async function mapbox(query: string, token: string): Promise<GeocodeResult[]> {
+  const url = new URL("https://api.mapbox.com/search/geocode/v6/forward");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "5");
+  url.searchParams.set("country", "us");
+  url.searchParams.set("types", "address");
+  url.searchParams.set("access_token", token);
+  const res = await withTimeout(url.toString(), 8000);
+  if (!res.ok) throw new Error(`Mapbox geocoding ${res.status}`);
+  const json = (await res.json()) as {
+    features: { geometry: { coordinates: [number, number] }; properties: { full_address?: string; name?: string } }[];
+  };
+  return json.features.map((f) => ({
+    displayName: f.properties.full_address ?? f.properties.name ?? query,
+    center: { lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] },
+  }));
+}
+
 /**
- * Address search. Races Photon and Nominatim and returns whichever answers
+ * Address search. With a Mapbox token, uses Mapbox; otherwise races Photon and Nominatim and returns whichever answers
  * first with at least one result.
  */
 export async function geocode(query: string): Promise<GeocodeResult[]> {
+  if (MAPBOX_TOKEN) {
+    try {
+      const r = await mapbox(query, MAPBOX_TOKEN);
+      if (r.length) return r;
+    } catch (err) {
+      console.warn("[geocode] Mapbox failed, falling back to OSM:", err);
+    }
+  }
   const attempts = [photon(query), nominatim(query)].map((p) =>
     p.then((r) => {
       if (!r.length) throw new Error("no results");

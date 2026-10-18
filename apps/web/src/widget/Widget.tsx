@@ -13,7 +13,8 @@ import maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchFootprints } from "../footprint";
 import { geocode } from "../geocode";
-import { SATELLITE_STYLE } from "../MapView";
+import { MapboxLogoControl, SATELLITE_STYLE } from "../MapView";
+import { hasMapbox } from "../providers";
 import { decodeWidgetConfig, monthlyPayment, type WidgetConfig } from "./config";
 
 type Step = "address" | "loading" | "quote" | "manual" | "sent";
@@ -317,6 +318,7 @@ function RoofMap({ model, center }: { model: RoofModel; center: LngLat }) {
       interactive: false,
       attributionControl: { compact: true },
     });
+    if (hasMapbox) map.addControl(new MapboxLogoControl(), "bottom-left");
     map.on("load", () => {
       const features: GeoJSON.Feature[] = model.facets.map((f) => ({
         type: "Feature",

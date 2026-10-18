@@ -1,7 +1,10 @@
 import { geoDistanceFeet, measureRoof, type EdgeType, type LngLat } from "@roof-estimator/core";
 import maplibregl, { type MapMouseEvent } from "maplibre-gl";
 import { useEffect, useRef } from "react";
+import { hasMapbox, SATELLITE_STYLE } from "./providers";
 import type { Action, AppState } from "./state";
+
+export { SATELLITE_STYLE };
 
 export const EDGE_COLORS: Record<EdgeType, string> = {
   eave: "#3b82f6",
@@ -27,20 +30,6 @@ interface Props {
   onReady?: (handle: MapHandle) => void;
 }
 
-export const SATELLITE_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-  sources: {
-    esri: {
-      type: "raster",
-      tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
-      tileSize: 256,
-      maxzoom: 20,
-      attribution: "Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-    },
-  },
-  layers: [{ id: "satellite", type: "raster", source: "esri" }],
-};
 
 const SNAP_PX = 10;
 
@@ -134,6 +123,7 @@ export function MapView({ state, dispatch, onReady }: Props) {
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-left");
+    if (hasMapbox) map.addControl(new MapboxLogoControl(), "bottom-left");
     mapRef.current = map;
 
     map.on("load", () => {
@@ -346,5 +336,24 @@ function syncData(map: maplibregl.Map, state: AppState) {
   for (const [id, fc] of Object.entries(data)) {
     const src = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
     src?.setData(fc);
+  }
+}
+
+/** Mapbox's terms require their wordmark on maps that use their tiles. */
+export class MapboxLogoControl implements maplibregl.IControl {
+  private el: HTMLElement | null = null;
+  onAdd(): HTMLElement {
+    const a = document.createElement("a");
+    a.href = "https://www.mapbox.com/";
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.className = "maplibregl-ctrl mapbox-wordmark";
+    a.textContent = "mapbox";
+    a.setAttribute("aria-label", "Mapbox");
+    this.el = a;
+    return a;
+  }
+  onRemove(): void {
+    this.el?.remove();
   }
 }

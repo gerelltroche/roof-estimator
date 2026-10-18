@@ -1,10 +1,11 @@
 import { centroidLngLat, geoDistanceFeet, pointInPolygon, type LngLat } from "@roof-estimator/core";
+import { MAPBOX_TOKEN } from "./providers";
 
 export interface Footprint {
   id: string;
   polygon: LngLat[];
   tags: Record<string, string>;
-  source: "osm";
+  source: "osm" | "mapbox";
 }
 
 /**
@@ -31,6 +32,76 @@ interface OverpassWay {
 /** In-memory cache so re-detecting at the same spot is instant. */
 const cache = new Map<string, Footprint[]>();
 
+function sortByHit(at: LngLat, fps: Footprint[]): Footprint[] {
+  return fps.sort((a, b) => {
+    const ia = pointInPolygon(at, a.polygon) ? 0 : 1;
+    const ib = pointInPolygon(at, b.polygon) ? 0 : 1;
+    if (ia !== ib) return ia - ib;
+    return geoDistanceFeet(at, centroidLngLat(a.polygon)) - geoDistanceFeet(at, centroidLngLat(b.polygon));
+  });
+}
+
+/**
+ * Mapbox Tilequery against the Streets v8 tileset, whose `building` layer is
+ * OSM buildings. One ~200 ms HTTP call, no Overpass queue. Buildings that
+ * straddle a tile edge come back clipped, so a polygon with vertices on the
+ * z16 tile boundary is rejected and the caller falls back to Overpass.
+ */
+async function mapboxFootprints(at: LngLat, radiusM: number, token: string, timeoutMs: number): Promise<Footprint[]> {
+  const url = new URL(`https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/tilequery/${at.lng},${at.lat}.json`);
+  url.searchParams.set("layers", "building");
+  url.searchParams.set("radius", String(radiusM));
+  url.searchParams.set("geometry", "polygon");
+  url.searchParams.set("limit", "10");
+  url.searchParams.set("access_token", token);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url.toString(), { signal: ctl.signal });
+    if (!res.ok) throw new Error(`Mapbox tilequery ${res.status}`);
+    const json = (await res.json()) as {
+      features: { id?: number; geometry: { type: string; coordinates: number[][][] }; properties: Record<string, string> }[];
+    };
+    const bounds = tileBoundsZ16(at);
+    const fps: Footprint[] = [];
+    for (const f of json.features) {
+      if (f.geometry.type !== "Polygon") continue;
+      const ring = f.geometry.coordinates[0] ?? [];
+      const polygon = ring.map(([lng, lat]) => ({ lng: lng!, lat: lat! }));
+      if (polygon.length > 1) {
+        const a = polygon[0]!;
+        const b = polygon[polygon.length - 1]!;
+        if (a.lng === b.lng && a.lat === b.lat) polygon.pop();
+      }
+      if (polygon.length < 3) continue;
+      if (touchesTileEdge(polygon, bounds)) throw new Error("clipped at tile edge");
+      fps.push({ id: `mapbox-${f.id ?? fps.length}`, polygon, tags: f.properties, source: "mapbox" });
+    }
+    return sortByHit(at, fps);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function tileBoundsZ16(p: LngLat) {
+  const z = 16;
+  const n = 2 ** z;
+  const x = Math.floor(((p.lng + 180) / 360) * n);
+  const latRad = (p.lat * Math.PI) / 180;
+  const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
+  const lng0 = (x / n) * 360 - 180;
+  const lng1 = ((x + 1) / n) * 360 - 180;
+  const latOf = (yy: number) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * yy) / n))) * 180) / Math.PI;
+  return { lng0, lng1, lat0: latOf(y + 1), lat1: latOf(y) };
+}
+
+function touchesTileEdge(poly: LngLat[], b: ReturnType<typeof tileBoundsZ16>): boolean {
+  const eps = 1e-6; // ~0.1 m
+  return poly.some(
+    (p) => Math.abs(p.lng - b.lng0) < eps || Math.abs(p.lng - b.lng1) < eps || Math.abs(p.lat - b.lat0) < eps || Math.abs(p.lat - b.lat1) < eps,
+  );
+}
+
 /**
  * Fetch building footprints near a point from OpenStreetMap via Overpass.
  * All mirrors are queried in parallel and the first good answer wins, since
@@ -41,6 +112,18 @@ export async function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 1200
   const key = `${at.lat.toFixed(5)},${at.lng.toFixed(5)},${radiusM}`;
   const hit = cache.get(key);
   if (hit) return hit;
+
+  if (MAPBOX_TOKEN) {
+    try {
+      const fps = await mapboxFootprints(at, radiusM, MAPBOX_TOKEN, timeoutMs);
+      if (fps.length) {
+        cache.set(key, fps);
+        return fps;
+      }
+    } catch (err) {
+      console.warn("[footprint] Mapbox tilequery failed, falling back to Overpass:", err);
+    }
+  }
 
   const query = `[out:json][timeout:10];way["building"](around:${radiusM},${at.lat},${at.lng});out geom;`;
   const controllers = OVERPASS_ENDPOINTS.map(() => new AbortController());
@@ -85,13 +168,8 @@ export async function fetchFootprints(at: LngLat, radiusM = 40, timeoutMs = 1200
       }
       return { id: `osm-${w.id}`, polygon, tags: w.tags ?? {}, source: "osm" as const };
     })
-    .filter((f) => f.polygon.length >= 3)
-    .sort((a, b) => {
-      const ia = pointInPolygon(at, a.polygon) ? 0 : 1;
-      const ib = pointInPolygon(at, b.polygon) ? 0 : 1;
-      if (ia !== ib) return ia - ib;
-      return geoDistanceFeet(at, centroidLngLat(a.polygon)) - geoDistanceFeet(at, centroidLngLat(b.polygon));
-    });
+    .filter((f) => f.polygon.length >= 3);
+  sortByHit(at, fps);
   cache.set(key, fps);
   return fps;
 }

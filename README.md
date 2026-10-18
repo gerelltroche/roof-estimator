@@ -29,6 +29,10 @@ pnpm dev          # http://localhost:5173
 
 Requires Node 20+ and [pnpm](https://pnpm.io).
 
+### Optional: Mapbox
+
+Copy `apps/web/.env.example` to `apps/web/.env` and set `VITE_MAPBOX_TOKEN` to a public token. That switches the app to Mapbox satellite imagery, Mapbox Geocoding v6, and Mapbox Tilequery for footprint detection (one fast HTTP call against the Streets tileset's OSM buildings, instead of the often-queued public Overpass servers). Everything still works without a token; the free providers are the fallback either way. The hosted demo passes the token in from a `MAPBOX_TOKEN` repository secret at build time.
+
 ### Workflow
 
 1. Search an address. The map flies to it at roof-level zoom.
@@ -83,4 +87,4 @@ Measurement reports cost $13–50 each and estimating seats run $100–350/month
 
 ## License
 
-MIT. Satellite imagery is provided by Esri World Imagery and address search by OpenStreetMap Nominatim under their respective terms.
+MIT. Imagery is Esri World Imagery or Mapbox Satellite, address search is Photon/Nominatim or Mapbox Geocoding, and building footprints are © OpenStreetMap contributors via Overpass or Mapbox Tilequery, each under their own terms.

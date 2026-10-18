@@ -1,5 +1,6 @@
 import {
   buildTakeoff,
+  footprintToRoof,
   gableRoof,
   hipRoof,
   measureRoof,
@@ -7,9 +8,13 @@ import {
   priceAllTiers,
   serializeModel,
   type EdgeType,
+  type LngLat,
+  type RoofStyle,
 } from "@roof-estimator/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchFootprints } from "./footprint";
 import { geocode, type GeocodeResult } from "./geocode";
+import { WidgetPanel } from "./panels/WidgetPanel";
 import { MapView, type MapHandle } from "./MapView";
 import { EstimatePanel } from "./panels/EstimatePanel";
 import { FacetPanel } from "./panels/FacetPanel";
@@ -18,7 +23,7 @@ import { TakeoffPanel } from "./panels/TakeoffPanel";
 import { PrintReport } from "./PrintReport";
 import { useAppState } from "./state";
 
-type Tab = "draw" | "report" | "takeoff" | "estimate";
+type Tab = "draw" | "report" | "takeoff" | "estimate" | "widget";
 
 const EDGE_SHORTCUTS: Record<string, EdgeType> = {
   e: "eave",
@@ -39,6 +44,9 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const mapRef = useRef<MapHandle | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [detectStyle, setDetectStyle] = useState<RoofStyle>("hip");
+  const [detecting, setDetecting] = useState(false);
+  const [lastSearch, setLastSearch] = useState<LngLat | null>(null);
 
   const report = useMemo(() => (state.model.facets.length ? measureRoof(state.model) : null), [state.model]);
   const takeoff = useMemo(
@@ -92,6 +100,7 @@ export function App() {
       setResults(r);
       const first = r[0];
       if (first) {
+        setLastSearch(first.center);
         mapRef.current?.flyTo(first.center, 20);
         if (!state.model.address) dispatch({ type: "model:meta", patch: { address: first.displayName.split(",").slice(0, 3).join(",") } });
       }
@@ -127,6 +136,33 @@ export function App() {
     const facets = preset.facets.map((f, i) => ({ ...f, id: `facet-${n + i + 1}`, label: `${f.label} ${n + i + 1}` }));
     dispatch({ type: "load", model: { ...state.model, facets: [...state.model.facets, ...facets] } });
   };
+  const detectRoof = async (at?: LngLat) => {
+    const point = at ?? lastSearch ?? mapRef.current?.getCenter();
+    if (!point) return;
+    setDetecting(true);
+    try {
+      const fps = await fetchFootprints(point);
+      const fp = fps[0];
+      if (!fp) {
+        alert("No building found here in OpenStreetMap. Zoom to the roof and try again, or draw it manually.");
+        return;
+      }
+      const { model, autoSplit } = footprintToRoof(fp.polygon, {
+        style: detectStyle,
+        pitch: state.defaultPitch,
+        overhangFt: 1,
+        idPrefix: `facet-${state.model.facets.length + 1}`,
+      });
+      dispatch({ type: "load", model: { ...state.model, facets: [...state.model.facets, ...model.facets] } });
+      setTimeout(() => mapRef.current?.fitToRoof(), 50);
+      if (!autoSplit && detectStyle !== "outline")
+        alert("Footprint isn't a simple rectangle, so it was added as an outline. Split it into facets and label the edges.");
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setDetecting(false);
+    }
+  };
 
   return (
     <div className="app">
@@ -151,6 +187,7 @@ export function App() {
                 <li
                   key={r.displayName}
                   onClick={() => {
+                    setLastSearch(r.center);
                     mapRef.current?.flyTo(r.center, 20);
                     setResults([]);
                   }}
@@ -169,6 +206,16 @@ export function App() {
             ↷
           </button>
           <span className="sep" />
+          <span className="detect">
+            <button className="primary" onClick={() => void detectRoof()} disabled={detecting} title="Find the building at the searched address (or map center) in OpenStreetMap and build a roof from it">
+              {detecting ? "Detecting…" : "Detect roof"}
+            </button>
+            <select value={detectStyle} onChange={(e) => setDetectStyle(e.target.value as RoofStyle)} title="Roof style to generate">
+              <option value="hip">Hip</option>
+              <option value="gable">Gable</option>
+              <option value="outline">Outline only</option>
+            </select>
+          </span>
           <button onClick={() => addPreset("gable")} title="Drop a 50×30 gable at the map center">
             + Gable
           </button>
@@ -209,6 +256,7 @@ export function App() {
                 ["report", "Report"],
                 ["takeoff", "Takeoff"],
                 ["estimate", "Estimate"],
+                ["widget", "Widget"],
               ] as [Tab, string][]
             ).map(([id, label]) => (
               <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
@@ -244,6 +292,7 @@ export function App() {
               onConfig={(config) => dispatch({ type: "takeoffConfig", config })}
             />
           )}
+          {tab === "widget" && <WidgetPanel state={state} />}
           {tab === "estimate" && (
             <EstimatePanel estimates={estimates} takeoff={takeoff} config={state.pricingConfig} onConfig={(config) => dispatch({ type: "pricingConfig", config })} />
           )}

@@ -89,6 +89,18 @@ body,
   margin-left: auto;
   flex-wrap: wrap;
 }
+.detect {
+  display: inline-flex;
+}
+.detect button {
+  border-radius: 6px 0 0 6px;
+}
+.detect select {
+  width: auto;
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+  padding: 6px 6px;
+}
 .sep {
   width: 1px;
   height: 22px;
@@ -501,4 +513,28 @@ button.small {
     border-top: 1px solid var(--border);
     flex: 1;
   }
+}
+
+.button-link {
+  display: inline-block;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  text-decoration: none;
+}
+.button-link:hover {
+  border-color: var(--muted);
+}
+input[type="color"] {
+  height: 34px;
+  padding: 2px;
+}
+code {
+  background: var(--panel-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
 }

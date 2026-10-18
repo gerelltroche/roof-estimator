@@ -10,10 +10,12 @@ Draw a roof over satellite imagery, label the edges, set the pitch, and get a me
 
 | Area | Features |
 | --- | --- |
+| **Auto-detect** | **Detect roof** finds the building at the address in OpenStreetMap and, for rectangle-like footprints, generates a fully labeled hip or gable roof with the ridge on the long axis. Other shapes come in as an outline to split. |
 | **Measure** | Address search, satellite imagery, draw facets by clicking corners, vertex snapping, drag to adjust, per-facet pitch (rise/12, degrees, or %), edge labels: eave, rake, ridge, hip, valley, transition, wall, parapet. Keyboard shortcuts for fast labeling. |
 | **Report** | Total area, squares, footprint area, areas-per-pitch table, predominant pitch, linear feet of every edge type (shared ridges/hips/valleys counted once), complexity rating, suggested waste, and a 0–30% waste table rounded to ⅓ square, matching the format of an EagleView Premium report. |
 | **Takeoff** | Shingle bundles, underlayment rolls, ice & water, starter, hip/ridge cap, drip edge, valley metal, step flashing, pipe boots and other penetrations, ridge vent, nails, cap nails, sealant. Every quantity shows the formula it came from. All coverage assumptions are editable. |
 | **Estimate** | Material pricing, labor by pitch tier (walkable / steep / very steep, area-weighted), tear-off per layer, multi-story, penetrations, disposal, permit, delivery, decking allowance, overhead, profit margin, sales tax. Three tiers out of the box. |
+| **Instant quote widget** | A Roofle-style homeowner page (`widget.html`): enter an address → roof measured from the OSM footprint → Good / Better / Best price ranges with an optional monthly financing teaser → lead form that POSTs JSON to your webhook (Zapier, n8n, your CRM) and `postMessage`s the parent page. Configure branding and assumptions in the **Widget** tab; your pricing is encoded into the embed URL so there is no server. |
 | **Output** | Print-ready report with a plan-view diagram (use Save as PDF), JSON import/export, autosave. |
 
 ## Quick start
@@ -30,7 +32,7 @@ Requires Node 20+ and [pnpm](https://pnpm.io).
 ### Workflow
 
 1. Search an address. The map flies to it at roof-level zoom.
-2. Click **Draw facet** (or press <kbd>D</kbd>), click each corner of one roof plane, then click the first corner or press <kbd>Enter</kbd> to close it. Repeat per plane. Corners snap to existing points so shared edges line up.
+2. Click **Detect roof** to pull the building footprint from OpenStreetMap and auto-generate a hip or gable roof. If the house isn't a simple rectangle (or isn't in OSM yet), draw it: click **Draw facet** (or press <kbd>D</kbd>), click each corner of one roof plane, then click the first corner or press <kbd>Enter</kbd> to close it. Repeat per plane. Corners snap to existing points so shared edges line up.
 3. Select a facet, set its pitch, then click each edge and label it (<kbd>E</kbd> eave, <kbd>K</kbd> rake, <kbd>R</kbd> ridge, <kbd>H</kbd> hip, <kbd>V</kbd> valley, <kbd>W</kbd> wall). The selection advances automatically so you can label a whole facet by typing, e.g. `E K R K`.
 4. Open **Report**, **Takeoff**, and **Estimate**. Adjust waste, coverage, and prices to match your supplier and crew.
 5. **Print / PDF** for a report, or **Export** for a `.roof.json` you can reopen later.
@@ -63,6 +65,7 @@ A roof model is plain JSON: facets as plan-view polygons (lng/lat), a pitch per 
 - **Edge lengths**: once a facet has a labeled eave or ridge, its fall line is known, so any edge's true length is `√(plan² + rise²)` with rise taken along the fall line. This gets rakes, 45° hips, off-angle hips, and wall edges right without a lookup table. Facets with no horizontal edge fall back to the standard pitch and hip/valley factors.
 - **Shared edges**: a ridge, hip, valley, or transition labeled on both adjoining facets is counted once.
 - **Waste**: suggested waste is driven by a complexity score from hip/valley length relative to roof size and facet count (simple 10%, normal 13%, complex 17%). The table rounds squares up to ⅓ so bundles come out whole.
+- **Auto-detect**: the footprint's minimum-area bounding rectangle is found with rotating calipers over the convex hull. If the footprint fills ≥85% of that rectangle it's treated as a rectangle and split into hip or gable facets along the long axis (with a 1 ft overhang); otherwise it's kept as an outline.
 - **Labor**: install rate × an area-weighted steepness multiplier, so a roof that is 70% walkable and 30% steep is not priced as all-steep.
 
 ## Project layout

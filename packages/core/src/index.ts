@@ -6,3 +6,4 @@ export * from "./takeoff.js";
 export * from "./pricing.js";
 export * from "./presets.js";
 export * from "./serialize.js";
+export * from "./footprint.js";

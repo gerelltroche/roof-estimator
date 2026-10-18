@@ -15,9 +15,11 @@
 - [ ] Gutter / downspout takeoff from eave lengths
 
 ## v0.3 — measurement helpers
-- [ ] Auto-detect building footprint from OSM/Microsoft/Google open building footprints as a starting polygon
+- [x] Auto-detect building footprint from OpenStreetMap (Overpass) as a starting polygon
 - [ ] Pitch estimation from shadow length / image heuristics, and from phone camera (PWA)
-- [ ] Auto-split a footprint into facets for standard shapes (gable, hip, L-shape, T-shape)
+- [x] Auto-split rectangular footprints into hip/gable facets
+- [ ] Auto-split L/T/U footprints via straight skeleton
+- [ ] Fall back to Microsoft / Overture building footprints where OSM has none
 - [ ] Multiple structures on one property, each with its own summary
 - [ ] Imperial / metric toggle
 
@@ -31,7 +33,8 @@
 - [ ] CSV / supplier order export (ABC, SRS, Beacon formats)
 - [ ] Xactimate-compatible line items (RFG codes) and ESX-style export
 - [ ] Hover / EagleView report import (JSON/XML) so existing reports flow into the takeoff
-- [ ] Homeowner instant-quote embed (price range by address using open footprints)
+- [x] Homeowner instant-quote embed (price range by address using open footprints)
+- [ ] Widget: e-mail the quote to the homeowner, product photos per tier, schedule-an-inspection link
 - [ ] CLI: `roof-estimator report model.json`
 
 ## Later

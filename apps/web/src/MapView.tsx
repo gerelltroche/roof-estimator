@@ -27,7 +27,7 @@ interface Props {
   onReady?: (handle: MapHandle) => void;
 }
 
-const SATELLITE_STYLE: maplibregl.StyleSpecification = {
+export const SATELLITE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   sources: {

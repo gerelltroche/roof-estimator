@@ -64,7 +64,7 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
   const config = useMemo(() => mergeWidgetConfig(partial ?? {}), [partial]);
   const T: WidgetTexts = useMemo(() => ({ ...DEFAULT_TEXTS, ...(config.texts ?? {}) }), [config.texts]);
   const [step, setStep] = useState<Step>("address");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(() => config.initialAddress?.trim() ?? "");
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [manualSqFt, setManualSqFt] = useState("");
@@ -111,12 +111,20 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
     setStep("address");
   };
 
-  const run = async () => {
-    if (!address.trim()) return;
+  // Each run gets a sequence number; a run whose number is no longer current
+  // (because a newer address started) drops its result instead of showing it.
+  const runSeq = useRef(0);
+
+  const run = async (query: string = address) => {
+    const q = query.trim();
+    if (!q) return;
+    const id = ++runSeq.current;
+    const stale = () => id !== runSeq.current;
     setError(null);
     setStep("loading");
     try {
-      const results = await geocode(address, { mapboxToken: config.mapboxToken });
+      const results = await geocode(q, { mapboxToken: config.mapboxToken });
+      if (stale()) return;
       const hit = results[0];
       if (!hit) throw new Error("We couldn't find that address. Try adding the city and state.");
       setCenter(hit.center);
@@ -125,6 +133,7 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
         return;
       }
       const { footprints } = await fetchFootprints(hit.center, { mapboxToken: config.mapboxToken, radiusM: 35 }).catch(() => ({ footprints: [] }));
+      if (stale()) return;
       const fp = footprints[0];
       if (!fp) {
         setStep("manual");
@@ -135,10 +144,27 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
       const report = measureRoof(model);
       showQuote({ address: hit.displayName, center: hit.center, model, report, estimates: priceFor(model, report), source: "footprint" });
     } catch (err) {
+      if (stale()) return;
       setError((err as Error).message);
       setStep("address");
     }
   };
+
+  // initialAddress: prefill and auto-run once per distinct value, exactly as
+  // if the homeowner had typed it and pressed the button. Keyed on the value
+  // only, so re-renders and "Change address" / reset never re-trigger it; a
+  // new attribute value does. The ref also absorbs StrictMode's double effect.
+  const autoRanFor = useRef<string | null>(null);
+  const initialAddress = config.initialAddress?.trim() ?? "";
+  useEffect(() => {
+    if (!initialAddress || autoRanFor.current === initialAddress) return;
+    autoRanFor.current = initialAddress;
+    setAddress(initialAddress);
+    setLeadSent(false);
+    setQuote(null);
+    void run(initialAddress);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAddress]);
 
   const runManual = () => {
     const sqft = Number(manualSqFt);

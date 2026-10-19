@@ -68,6 +68,7 @@ import "@roof-estimator/widget/styles.css";
 | `financing-apr`, `financing-months` | same | `9.99`, `120` | Omit APR to hide the monthly figure. |
 | `webhook` | `webhook` | — | POST lead JSON here. |
 | `lead-gate` | `leadGate` | `after` | `after`: price first, lead form under it. `before`: measure the roof, ask for name + phone/email, reveal the price on submit (the lead is sent at that point; `roof-quote:quote` fires when the price is shown). Copy via `texts.gateTitle`, `gateSub`, `gateCta`, `gateFine`, `revealedTitle`, `revealedSub`. |
+| `address` | `initialAddress` | — | Prefill and auto-run for this address (e.g. from a homepage form's `?address=` param). Runs once per value; changing it runs again; blank values do nothing. |
 | `hide-branding` | — | — | Removes the "Powered by" line. |
 | `config` | — | — | A base64url string from the app's **Widget** tab carrying full pricing, takeoff and branding. Other attributes override it. |
 

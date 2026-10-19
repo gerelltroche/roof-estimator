@@ -12,6 +12,8 @@ import css from "./styles.css?inline";
  *   mapbox-token, company, phone, email, color, pitch, style (hip|gable),
  *   existing-layers, stories, range-pct, financing-apr, financing-months,
  *   webhook, lead-gate (before|after), headline, cta, disclaimer, hide-branding,
+ *   address  — prefill and auto-run the quote for this address on mount
+ *              (once per value; changing it runs again; blank does nothing)
  *   config   — a base64url config string from the app's Widget tab
  *              (full pricing + takeoff + branding). Attributes override it.
  *
@@ -42,6 +44,7 @@ const ATTRS = {
   "financing-months": "financingMonths",
   webhook: "webhook",
   "lead-gate": "leadGate",
+  address: "initialAddress",
   headline: "headline",
   cta: "cta",
   disclaimer: "disclaimer",

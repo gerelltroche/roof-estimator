@@ -33,6 +33,12 @@ export interface WidgetConfig {
    * name + phone/email, and reveals the price on submit (the lead is sent then).
    */
   leadGate: "before" | "after";
+  /**
+   * Prefill the address and run the quote immediately on mount, as if the
+   * homeowner had typed it and pressed the button (e.g. from a homepage form's
+   * ?address= param). Runs once per distinct value; blank values are ignored.
+   */
+  initialAddress?: string;
   headline: string;
   cta: string;
   disclaimer: string;

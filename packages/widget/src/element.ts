@@ -11,7 +11,7 @@ import css from "./styles.css?inline";
  * Attributes (all optional; kebab-case):
  *   mapbox-token, company, phone, email, color, pitch, style (hip|gable),
  *   existing-layers, stories, range-pct, financing-apr, financing-months,
- *   webhook, headline, cta, disclaimer, hide-branding,
+ *   webhook, lead-gate (before|after), headline, cta, disclaimer, hide-branding,
  *   config   — a base64url config string from the app's Widget tab
  *              (full pricing + takeoff + branding). Attributes override it.
  *
@@ -41,6 +41,7 @@ const ATTRS = {
   "financing-apr": "financingApr",
   "financing-months": "financingMonths",
   webhook: "webhook",
+  "lead-gate": "leadGate",
   headline: "headline",
   cta: "cta",
   disclaimer: "disclaimer",

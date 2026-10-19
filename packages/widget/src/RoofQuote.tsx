@@ -13,7 +13,7 @@ import { fetchFootprints, geocode, satelliteStyle } from "@roof-estimator/geo";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_TEXTS, mergeWidgetConfig, monthlyPayment, type WidgetConfig, type WidgetTexts } from "./config";
 
-type Step = "address" | "loading" | "quote" | "manual" | "sent";
+type Step = "address" | "loading" | "details" | "quote" | "manual" | "sent";
 
 export interface Quote {
   address: string;
@@ -69,6 +69,8 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
   const [quote, setQuote] = useState<Quote | null>(null);
   const [manualSqFt, setManualSqFt] = useState("");
   const [center, setCenter] = useState<LngLat | null>(null);
+  // lead-gate="before": the lead is captured between measuring and pricing.
+  const [leadSent, setLeadSent] = useState(false);
   const r = config.rangePct / 100;
 
   const priceFor = (model: RoofModel | null, report: MeasurementReport) => {
@@ -88,8 +90,25 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
 
   const showQuote = (q: Quote) => {
     setQuote(q);
+    if (config.leadGate === "before" && !leadSent) {
+      setStep("details");
+      return;
+    }
     setStep("quote");
     onQuote?.(toQuoteEvent(q));
+  };
+
+  const reveal = () => {
+    if (!quote) return;
+    setLeadSent(true);
+    setStep("quote");
+    onQuote?.(toQuoteEvent(quote));
+  };
+
+  const reset = () => {
+    setLeadSent(false);
+    setQuote(null);
+    setStep("address");
   };
 
   const run = async () => {
@@ -202,11 +221,15 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
               <button className="rq-btn" onClick={runManual}>
                 {T.estimate}
               </button>
-              <button className="rq-link" onClick={() => setStep("address")}>
+              <button className="rq-link" onClick={reset}>
                 {T.tryAnother}
               </button>
             </div>
           </section>
+        )}
+
+        {step === "details" && quote && (
+          <DetailsView quote={quote} config={config} T={T} toEvent={toQuoteEvent} onLead={onLead} onRevealed={reveal} onReset={reset} />
         )}
 
         {step === "quote" && quote && (
@@ -216,8 +239,9 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
             T={T}
             toEvent={toQuoteEvent}
             onLead={onLead}
+            leadSent={leadSent}
             onSent={() => setStep("sent")}
-            onReset={() => setStep("address")}
+            onReset={reset}
           />
         )}
 
@@ -225,7 +249,7 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
           <section className="rq-card rq-center rq-step-sent">
             <h2>{T.thanksTitle}</h2>
             <p className="rq-sub">{fill(T.thanksSub, { company: config.company })}</p>
-            <button className="rq-link" onClick={() => setStep("address")}>
+            <button className="rq-link" onClick={reset}>
               {T.startOver}
             </button>
           </section>
@@ -241,27 +265,19 @@ export function RoofQuote({ config: partial, onQuote, onLead, className, hideBra
   );
 }
 
-function QuoteView({
-  quote,
-  config,
-  T,
-  toEvent,
-  onLead,
-  onSent,
-  onReset,
-}: {
-  quote: Quote;
-  config: WidgetConfig;
-  T: WidgetTexts;
-  toEvent: (q: Quote) => RoofQuoteQuoteEvent;
-  onLead?: RoofQuoteProps["onLead"];
-  onSent: () => void;
-  onReset: () => void;
-}) {
-  const [lead, setLead] = useState({ name: "", email: "", phone: "", notes: "" });
+type Lead = RoofQuoteLeadEvent["lead"];
+
+/** Lead form state + the submit that fires onLead and POSTs the webhook. Shared by both lead cards. */
+function useLeadSubmit(
+  quote: Quote,
+  config: WidgetConfig,
+  toEvent: (q: Quote) => RoofQuoteQuoteEvent,
+  onLead: RoofQuoteProps["onLead"],
+  onDone: () => void,
+) {
+  const [lead, setLead] = useState<Lead>({ name: "", email: "", phone: "", notes: "" });
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const r = config.rangePct / 100;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,13 +305,108 @@ function QuoteView({
         });
         if (!res.ok) throw new Error(`Lead delivery failed (${res.status})`);
       }
-      onSent();
+      onDone();
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setSending(false);
     }
   };
+
+  return { lead, setLead, sending, error, submit };
+}
+
+function LeadFields({ lead, setLead, T }: { lead: Lead; setLead: (l: Lead) => void; T: WidgetTexts }) {
+  return (
+    <>
+      <input placeholder={T.name} autoComplete="name" value={lead.name} onChange={(e) => setLead({ ...lead, name: e.target.value })} />
+      <input type="email" placeholder={T.email} autoComplete="email" value={lead.email} onChange={(e) => setLead({ ...lead, email: e.target.value })} />
+      <input type="tel" placeholder={T.phone} autoComplete="tel" value={lead.phone} onChange={(e) => setLead({ ...lead, phone: e.target.value })} />
+      <textarea placeholder={T.notes} rows={2} value={lead.notes} onChange={(e) => setLead({ ...lead, notes: e.target.value })} />
+    </>
+  );
+}
+
+/** lead-gate="before": the roof is measured, the price is held back until the homeowner leaves their details. */
+function DetailsView({
+  quote,
+  config,
+  T,
+  toEvent,
+  onLead,
+  onRevealed,
+  onReset,
+}: {
+  quote: Quote;
+  config: WidgetConfig;
+  T: WidgetTexts;
+  toEvent: (q: Quote) => RoofQuoteQuoteEvent;
+  onLead?: RoofQuoteProps["onLead"];
+  onRevealed: () => void;
+  onReset: () => void;
+}) {
+  const { lead, setLead, sending, error, submit } = useLeadSubmit(quote, config, toEvent, onLead, onRevealed);
+  const sqft = Math.round(quote.report.totalAreaSqFt).toLocaleString();
+  return (
+    <>
+      <section className="rq-card rq-quote rq-step-details">
+        <div className="rq-quote-head">
+          <div>
+            <div className="rq-addr-line">{quote.address}</div>
+            <div className="rq-roof-stats">
+              <strong>{sqft} ft²</strong> roof · {quote.report.squares.toFixed(1)} squares · {formatPitch(config.pitch)} pitch assumed
+              {quote.source === "manual" && " · size entered manually"}
+            </div>
+          </div>
+          <button className="rq-link" onClick={onReset}>
+            {T.changeAddress}
+          </button>
+        </div>
+        {quote.model && <RoofMap model={quote.model} center={quote.center} mapboxToken={config.mapboxToken} accent={config.color} />}
+      </section>
+
+      <section className="rq-card rq-lead-card rq-gate-card">
+        <h2>{T.gateTitle}</h2>
+        <p className="rq-sub">{fill(T.gateSub, { sqft, address: quote.address, company: config.company })}</p>
+        <form className="rq-lead" onSubmit={(e) => void submit(e)}>
+          <LeadFields lead={lead} setLead={setLead} T={T} />
+          {error && <p className="rq-error">{error}</p>}
+          <button type="submit" className="rq-btn" disabled={sending}>
+            {sending ? T.sending : T.gateCta}
+          </button>
+        </form>
+        <p className="rq-fine">{T.gateFine}</p>
+      </section>
+    </>
+  );
+}
+
+function QuoteView({
+  quote,
+  config,
+  T,
+  toEvent,
+  onLead,
+  leadSent,
+  onSent,
+  onReset,
+}: {
+  quote: Quote;
+  config: WidgetConfig;
+  T: WidgetTexts;
+  toEvent: (q: Quote) => RoofQuoteQuoteEvent;
+  onLead?: RoofQuoteProps["onLead"];
+  /** True when the lead was already captured by the gate; the lead form is replaced by a confirmation. */
+  leadSent: boolean;
+  onSent: () => void;
+  onReset: () => void;
+}) {
+  const { lead, setLead, sending, error, submit } = useLeadSubmit(quote, config, toEvent, onLead, onSent);
+  const r = config.rangePct / 100;
+  const financingFine =
+    config.financingApr !== undefined && config.financingMonths
+      ? ` *Monthly figure assumes ${config.financingApr}% APR over ${config.financingMonths} months with approved credit; not an offer of credit.`
+      : "";
 
   return (
     <>
@@ -342,25 +453,36 @@ function QuoteView({
         })}
       </section>
 
-      <section className="rq-card rq-lead-card">
-        <h2>{config.cta}</h2>
-        <form className="rq-lead" onSubmit={(e) => void submit(e)}>
-          <input placeholder={T.name} value={lead.name} onChange={(e) => setLead({ ...lead, name: e.target.value })} />
-          <input type="email" placeholder={T.email} value={lead.email} onChange={(e) => setLead({ ...lead, email: e.target.value })} />
-          <input type="tel" placeholder={T.phone} value={lead.phone} onChange={(e) => setLead({ ...lead, phone: e.target.value })} />
-          <textarea placeholder={T.notes} rows={2} value={lead.notes} onChange={(e) => setLead({ ...lead, notes: e.target.value })} />
-          {error && <p className="rq-error">{error}</p>}
-          <button type="submit" className="rq-btn" disabled={sending}>
-            {sending ? T.sending : config.cta}
-          </button>
-        </form>
-        <p className="rq-fine">
-          {config.disclaimer}
-          {config.financingApr !== undefined && config.financingMonths
-            ? ` *Monthly figure assumes ${config.financingApr}% APR over ${config.financingMonths} months with approved credit; not an offer of credit.`
-            : ""}
-        </p>
-      </section>
+      {leadSent ? (
+        <section className="rq-card rq-lead-card rq-revealed-card">
+          <h2>{T.revealedTitle}</h2>
+          <p className="rq-sub">{fill(T.revealedSub, { company: config.company })}</p>
+          {config.phone && (
+            <a className="rq-btn rq-btn-link" href={`tel:${config.phone.replace(/[^0-9+]/g, "")}`}>
+              {config.cta}
+            </a>
+          )}
+          <p className="rq-fine">
+            {config.disclaimer}
+            {financingFine}
+          </p>
+        </section>
+      ) : (
+        <section className="rq-card rq-lead-card">
+          <h2>{config.cta}</h2>
+          <form className="rq-lead" onSubmit={(e) => void submit(e)}>
+            <LeadFields lead={lead} setLead={setLead} T={T} />
+            {error && <p className="rq-error">{error}</p>}
+            <button type="submit" className="rq-btn" disabled={sending}>
+              {sending ? T.sending : config.cta}
+            </button>
+          </form>
+          <p className="rq-fine">
+            {config.disclaimer}
+            {financingFine}
+          </p>
+        </section>
+      )}
     </>
   );
 }

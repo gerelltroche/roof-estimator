@@ -27,6 +27,12 @@ export interface WidgetConfig {
   financingMonths?: number;
   /** POST lead + quote JSON here. */
   webhook?: string;
+  /**
+   * When the homeowner is asked for contact details: "after" (default) shows the
+   * price first and the lead form under it; "before" measures the roof, asks for
+   * name + phone/email, and reveals the price on submit (the lead is sent then).
+   */
+  leadGate: "before" | "after";
   headline: string;
   cta: string;
   disclaimer: string;
@@ -59,6 +65,14 @@ export interface WidgetTexts {
   thanksSub: string;
   startOver: string;
   poweredBy: string;
+  /** lead-gate="before" copy: the details card shown between measuring and pricing. */
+  gateTitle: string;
+  gateSub: string;
+  gateCta: string;
+  gateFine: string;
+  /** Shown in place of the lead form once the gated price is revealed. */
+  revealedTitle: string;
+  revealedSub: string;
 }
 
 export const DEFAULT_TEXTS: WidgetTexts = {
@@ -84,6 +98,12 @@ export const DEFAULT_TEXTS: WidgetTexts = {
   thanksSub: "{company} will confirm your exact price after a free inspection.",
   startOver: "Start over",
   poweredBy: "Powered by",
+  gateTitle: "Your roof is measured. Where should we send the quote?",
+  gateSub: "{sqft} ft² of roof at {address}. Enter your details and your three prices appear instantly.",
+  gateCta: "Show my price",
+  gateFine: "We only use this to send your quote and schedule the free inspection.",
+  revealedTitle: "Your quote is on its way to you too.",
+  revealedSub: "{company} will call to set up a free inspection and confirm the exact price on site.",
 };
 
 export const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
@@ -99,6 +119,7 @@ export const DEFAULT_WIDGET_CONFIG: WidgetConfig = {
   financingApr: 9.99,
   financingMonths: 120,
   webhook: "",
+  leadGate: "after",
   headline: "Get an instant roof quote",
   cta: "Get my exact quote",
   disclaimer:

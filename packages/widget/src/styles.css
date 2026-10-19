@@ -114,6 +114,16 @@
 .roof-quote .rq-btn:disabled {
   opacity: 0.6;
 }
+.roof-quote a.rq-btn-link {
+  display: inline-block;
+  text-decoration: none;
+  align-self: flex-start;
+}
+.roof-quote .rq-revealed-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .roof-quote .rq-link {
   background: none;
   border: none;
